@@ -23,6 +23,7 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import SparkMD5 from 'spark-md5'
 import type { ToolMeta } from '@/tools/types'
 import { useClipboard } from '@/composables/useClipboard'
 import { useToast } from '@/composables/useToast'
@@ -45,14 +46,10 @@ const algorithms = [
 
 async function computeAll() {
   const text = input.value
-  if (!text) { algorithms.forEach(a => results[a.name] = '') }
-  const encoder = new TextEncoder()
-  const data = encoder.encode(text)
-
+  if (!text) { algorithms.forEach(a => results[a.name] = ''); return }
   for (const { name, algo } of algorithms) {
     try {
-      const hashBuffer = await crypto.subtle.digest(algo, data)
-      results[name] = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+      results[name] = algo === 'MD5' ? SparkMD5.hash(text) : Array.from(new Uint8Array(await crypto.subtle.digest(algo, new TextEncoder().encode(text)))).map(b => b.toString(16).padStart(2, '0')).join('')
     } catch { results[name] = '计算失败' }
   }
 }
