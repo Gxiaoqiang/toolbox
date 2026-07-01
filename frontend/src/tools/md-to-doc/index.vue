@@ -48,6 +48,7 @@ const meta: ToolMeta = {
   icon: 'file-text',
   category: 'document',
   requiresBackend: true,
+  group: 'Markdown',
 }
 defineExpose({ meta })
 

@@ -32,43 +32,54 @@
             <span class="flex-1 text-left text-slate-500 uppercase tracking-wider">
               {{ CATEGORY_CONFIG[category.key].emoji }} {{ CATEGORY_CONFIG[category.key].label }}
             </span>
-            <span class="text-[10px] text-slate-300">{{ category.tools.length }}</span>
+            <span class="text-[10px] text-slate-300">{{ category.groups.reduce((s, g) => s + g.tools.length, 0) }}</span>
           </button>
 
-          <!-- 工具列表（可折叠） -->
+          <!-- 工具列表（可折叠，按分组显示） -->
           <div
             v-show="expandedCategories.has(category.key)"
-            class="mb-2 ml-2 space-y-0.5 overflow-hidden transition-all duration-200"
+            class="mb-2 overflow-hidden transition-all duration-200"
           >
-            <router-link
-              v-for="tool in category.tools"
-              :key="tool.meta.id"
-              :to="`/tools/${tool.meta.id}`"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
-              :class="activeToolId === tool.meta.id
-                ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
-            >
-              <!-- 选中指示条 -->
-              <span
-                v-if="activeToolId === tool.meta.id"
-                class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"
-              ></span>
-
-              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                :class="{
-                  'bg-blue-400': tool.meta.category === 'document',
-                  'bg-violet-400': tool.meta.category === 'develop',
-                  'bg-emerald-400': tool.meta.category === 'data',
-                }"
-              ></span>
-              <span class="truncate">{{ tool.meta.name }}</span>
-              <span
-                v-if="tool.meta.requiresBackend"
-                class="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
-                title="需要后端支持"
-              ></span>
-            </router-link>
+            <!-- 有子分组的渲染分组标签 -->
+            <template v-for="group in category.groups" :key="group.name || '_ungrouped'">
+              <!-- 分组标签 -->
+              <div
+                v-if="group.name"
+                class="flex items-center gap-1.5 px-3 py-1 mt-1 mb-0.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider"
+              >
+                <span class="w-0.5 h-3 bg-slate-300 rounded-full"></span>
+                {{ group.name }}
+              </div>
+              <!-- 工具项 -->
+              <router-link
+                v-for="tool in group.tools"
+                :key="tool.meta.id"
+                :to="`/tools/${tool.meta.id}`"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
+                :class="activeToolId === tool.meta.id
+                  ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                :style="group.name ? 'margin-left: 12px' : ''"
+              >
+                <span
+                  v-if="activeToolId === tool.meta.id"
+                  class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"
+                ></span>
+                <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  :class="{
+                    'bg-blue-400': tool.meta.category === 'document',
+                    'bg-violet-400': tool.meta.category === 'develop',
+                    'bg-emerald-400': tool.meta.category === 'data',
+                  }"
+                ></span>
+                <span class="truncate">{{ tool.meta.name }}</span>
+                <span
+                  v-if="tool.meta.requiresBackend"
+                  class="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
+                  title="需要后端支持"
+                ></span>
+              </router-link>
+            </template>
           </div>
         </div>
       </nav>
@@ -178,11 +189,33 @@ const currentCategoryBadgeClass = computed(() => {
   }[category] || ''
 })
 
-const categories = computed(() => {
+interface CategoryWithGroups {
+  key: ToolCategory
+  groups: { name: string | null; tools: typeof tools.value }[]
+}
+
+const categories = computed<CategoryWithGroups[]>(() => {
   const catOrder: ToolCategory[] = ['document', 'develop', 'data']
-  return catOrder.map((key) => ({
-    key,
-    tools: getToolsByCategory(key),
-  })).filter((c) => c.tools.length > 0)
+  return catOrder.map((key) => {
+    const catTools = getToolsByCategory(key)
+    // 按 group 分组
+    const groupMap = new Map<string | null, typeof catTools>()
+    for (const t of catTools) {
+      const g = t.meta.group || null
+      if (!groupMap.has(g)) groupMap.set(g, [])
+      groupMap.get(g)!.push(t)
+    }
+    // 排序：有名字的分组在前，未分组的在后
+    const groups = Array.from(groupMap.entries())
+    groups.sort(([a], [b]) => {
+      if (a === null) return 1
+      if (b === null) return -1
+      return a.localeCompare(b)
+    })
+    return {
+      key,
+      groups: groups.map(([name, tools]) => ({ name, tools })),
+    }
+  }).filter((c) => c.groups.length > 0 && c.groups.some(g => g.tools.length > 0))
 })
 </script>

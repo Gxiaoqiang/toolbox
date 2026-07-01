@@ -15,6 +15,8 @@ export interface ToolMeta {
   category: ToolCategory
   /** 是否需要后端支持 */
   requiresBackend?: boolean
+  /** 工具分组（可选），同一分类下相同 group 的工具会聚合展示 */
+  group?: string
 }
 
 /** 完整工具定义（meta + 组件加载器） */

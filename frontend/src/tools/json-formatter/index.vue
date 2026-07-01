@@ -42,12 +42,23 @@
 
       <!-- 树形视图 -->
       <div v-if="activeTab === 'tree'" class="flex-1 p-4 border border-slate-200 rounded-lg overflow-auto bg-white font-mono text-sm">
+        <div v-if="parsedJson" class="flex gap-2 mb-2">
+          <button @click="expandAll" class="px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors">全部展开</button>
+          <button @click="collapseAll" class="px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors">全部折叠</button>
+        </div>
         <div v-if="!parsedJson" class="text-slate-400">等待输入...</div>
-        <div v-else class="tree-view" v-html="treeHtml"></div>
+        <div v-else class="tree-view" ref="treeViewRef" v-html="treeHtml"></div>
       </div>
 
-      <!-- 文本视图 -->
-      <div v-else-if="activeTab === 'text'" class="flex-1 p-4 border border-slate-200 rounded-lg overflow-auto bg-white font-mono text-sm whitespace-pre-wrap">{{ output || '等待输入...' }}</div>
+      <!-- 文本视图（交互式带伸缩） -->
+      <div v-else-if="activeTab === 'text'" class="flex-1 p-4 border border-slate-200 rounded-lg overflow-auto bg-white font-mono text-sm">
+        <div v-if="parsedJson" class="flex gap-2 mb-2">
+          <button @click="expandAllText" class="px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors">全部展开</button>
+          <button @click="collapseAllText" class="px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors">全部折叠</button>
+        </div>
+        <div v-if="!parsedJson" class="text-slate-400">等待输入...</div>
+        <div v-else class="text-interactive-view" v-html="textInteractiveHtml"></div>
+      </div>
 
       <!-- JSONPath 查询 -->
       <div v-else class="flex-1 flex flex-col">
@@ -68,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import type { ToolMeta } from '@/tools/types'
 import { useClipboard } from '@/composables/useClipboard'
 import { useToast } from '@/composables/useToast'
@@ -79,7 +90,7 @@ const meta: ToolMeta = {
   name: 'JSON 格式化',
   description: '格式化/压缩/校验/树形查看/排序/转义/JSONPath',
   icon: '',
-  category: 'develop',
+  category: 'develop', group: 'JSON',
 }
 defineExpose({ meta })
 
@@ -91,6 +102,8 @@ const activeTab = ref<'tree' | 'text' | 'jsonpath'>('tree')
 const jsonPath = ref('')
 const jsonPathResult = ref('')
 const treeHtml = ref('')
+const treeViewRef = ref<HTMLElement | null>(null)
+const textInteractiveHtml = ref('')
 const rootKey = ref(0)
 const tabs = [
   { key: 'tree' as const, label: '树形' },
@@ -100,11 +113,13 @@ const tabs = [
 const { copied, copy } = useClipboard()
 const { success, error: toastError } = useToast()
 
+// ============ 树形视图 ============
+
 function renderTree(obj: any): string {
-  const id = 't' + Math.random().toString(36).slice(2)
-  const collapsed = new Set<string>()
+  const baseId = 'tt' + Math.random().toString(36).slice(2)
+  let nodeCount = 0
   function node(val: any, path: string, depth: number, autoExpand: boolean): string {
-    const nid = id + '-' + path.replace(/[^a-zA-Z0-9]/g, '_')
+    const nid = baseId + '-' + (nodeCount++)
     if (val === null || val === undefined) return `<span style="color:#94a3b8">null</span>`
     if (typeof val === 'string') return `<span style="color:#16a34a">"${val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}"</span>`
     if (typeof val === 'number') return `<span style="color:#2563eb">${val}</span>`
@@ -114,25 +129,197 @@ function renderTree(obj: any): string {
     const len = entries.length
     const bracket = isArr ? ['[',']'] : ['{','}']
     const summary = isArr ? `Array[${len}]` : `Object{${len}}`
-    const expandClass = autoExpand ? '' : ' collapsed'
-    let html = `<div class="tn">`
-    html += `<div class="tl" onclick="this.parentElement.classList.toggle('collapsed')"><span class="ta${expandClass ? '' : ' expanded'}">▼</span><span class="tp">${path}</span><span class="ts">${summary}</span><span class="tb"> ${bracket[0]}</span><span class="tdots${expandClass ? '' : ' hidden'}"> ... ${bracket[1]}</span></div>`
-    html += `<div class="tc${expandClass}">`
+    // 初始状态：全部展开
+    const isCollapsed = !autoExpand
+    let html = `<div class="tn" data-nid="${nid}">`
+    html += `<div class="tl" onclick="window.__toggleTreeNode('${nid}',this)"><span class="ta${isCollapsed ? '' : ' expanded'}">▼</span><span class="tp">${path}</span><span class="ts">${summary}</span><span class="tb"> ${bracket[0]}</span><span class="tdots${isCollapsed ? '' : ' hidden'}"> ... ${bracket[1]}</span></div>`
+    html += `<div class="tc${isCollapsed ? ' collapsed' : ''}">`
     for (const [k, v] of entries) {
       const cp = isArr ? `${path}[${k}]` : `${path}.${k}`
-      html += `<div class="tch"><span class="tk">${isArr ? `${k}:` : `"${k}":`}</span>${node(v, cp, depth + 1, false)}</div>`
+      html += `<div class="tch"><span class="tk">${isArr ? `${k}:` : `"${k}":`}</span>${node(v, cp, depth + 1, true)}</div>`
     }
-    html += `</div><div class="tb2${expandClass ? ' hidden' : ''}">${bracket[1]}</div></div>`
+    html += `</div><div class="tb2${isCollapsed ? ' hidden' : ''}">${bracket[1]}</div></div>`
     return html
   }
   return node(obj, '$', 0, true)
 }
 
+// 全局树节点切换函数
+;(window as any).__toggleTreeNode = function(nid: string, tlEl: HTMLElement) {
+  const tn = document.querySelector(`.tn[data-nid="${nid}"]`) as HTMLElement
+  if (!tn) return
+  const tc = tn.querySelector('.tc') as HTMLElement
+  const tdots = tn.querySelector('.tdots') as HTMLElement
+  const tb2 = tn.querySelector('.tb2') as HTMLElement
+  const ta = tlEl.querySelector('.ta') as HTMLElement
+  const isCollapsed = tc && tc.classList.contains('collapsed')
+  if (isCollapsed) {
+    // 展开
+    if (tc) tc.classList.remove('collapsed')
+    if (tdots) tdots.classList.add('hidden')
+    if (tb2) tb2.classList.remove('hidden')
+    if (ta) ta.classList.add('expanded')
+  } else {
+    // 折叠
+    if (tc) tc.classList.add('collapsed')
+    if (tdots) tdots.classList.remove('hidden')
+    if (tb2) tb2.classList.add('hidden')
+    if (ta) ta.classList.remove('expanded')
+  }
+}
+
+function expandAll() {
+  document.querySelectorAll('.tree-view .tc.collapsed').forEach(el => {
+    const tc = el as HTMLElement
+    const tn = tc.closest('.tn') as HTMLElement
+    const tdots = tn?.querySelector('.tdots') as HTMLElement
+    const tb2 = tn?.querySelector('.tb2') as HTMLElement
+    const ta = tn?.querySelector('.ta') as HTMLElement
+    tc.classList.remove('collapsed')
+    if (tdots) tdots.classList.add('hidden')
+    if (tb2) tb2.classList.remove('hidden')
+    if (ta) ta.classList.add('expanded')
+  })
+}
+
+function collapseAll() {
+  document.querySelectorAll('.tree-view .tc:not(.collapsed)').forEach(el => {
+    const tc = el as HTMLElement
+    const tn = tc.closest('.tn') as HTMLElement
+    // 保留根节点展开
+    if (tn && tn.parentElement?.closest('.tn') === null) return
+    const tdots = tn?.querySelector('.tdots') as HTMLElement
+    const tb2 = tn?.querySelector('.tb2') as HTMLElement
+    const ta = tn?.querySelector('.ta') as HTMLElement
+    tc.classList.add('collapsed')
+    if (tdots) tdots.classList.remove('hidden')
+    if (tb2) tb2.classList.add('hidden')
+    if (ta) ta.classList.remove('expanded')
+  })
+}
+
+// ============ 文本视图（交互式带伸缩） ============
+
+let textSectionCounter = 0
+
+function renderInteractiveText(obj: any): string {
+  textSectionCounter = 0
+  return `<div class="itv-root">${walkTree(obj, 0, false)}</div>`
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function walkTree(val: any, depth: number, isLast: boolean): string {
+  const br = '\n'
+  const indent = '  '.repeat(depth)
+  const indentInner = '  '.repeat(depth + 1)
+
+  if (val === null || val === undefined) return `<span class="itv-null">null</span>`
+  if (typeof val === 'string') return `<span class="itv-string">"${escHtml(val)}"</span>`
+  if (typeof val === 'number') return `<span class="itv-number">${val}</span>`
+  if (typeof val === 'boolean') return `<span class="itv-bool">${val}</span>`
+
+  const isArr = Array.isArray(val)
+  const entries = Object.entries(val)
+  const len = entries.length
+  const [open, close] = isArr ? ['[',']'] : ['{','}']
+
+  if (len === 0) return `<span class="itv-bracket">${open}${close}</span>`
+
+  const sectionId = 'itvsec-' + (textSectionCounter++)
+
+  let html = ''
+  html += `<span class="itv-bracket">${open}<span class="itv-arrow itv-arrow-expanded" data-section="${sectionId}" onclick="window.__toggleTextSection('${sectionId}',this)" title="点击折叠">▼</span></span>`
+  html += `<span class="itv-section itv-section-open" id="${sectionId}">`
+
+  for (let i = 0; i < entries.length; i++) {
+    const [k, v] = entries[i]
+    // 每个键值对前换行 + 缩进
+    html += br + indentInner
+    if (!isArr) html += `<span class="itv-key">"${escHtml(k)}"</span>: `
+    html += walkTree(v, depth + 1, i === entries.length - 1)
+    if (i < entries.length - 1) html += ','
+  }
+
+  // 闭合括号前换行 + 缩进
+  html += br + indent
+  html += `</span><span class="itv-bracket itv-close-bracket">${close}</span>`
+  return html
+}
+
+function expandAllText() {
+  document.querySelectorAll('.itv-section').forEach(el => {
+    el.classList.add('itv-section-open')
+    el.classList.remove('itv-section-collapsed')
+  })
+  document.querySelectorAll('.itv-arrow').forEach(el => {
+    el.classList.add('itv-arrow-expanded')
+    el.classList.remove('itv-arrow-collapsed')
+    el.textContent = '▼'
+  })
+}
+
+function collapseAllText() {
+  // 折叠所有可折叠区域（根级别除外）
+  document.querySelectorAll('.itv-section').forEach(el => {
+    el.classList.add('itv-section-collapsed')
+    el.classList.remove('itv-section-open')
+  })
+  // 保留根级别展开
+  const root = document.querySelector('.itv-root > .itv-section')
+  if (root) {
+    root.classList.add('itv-section-open')
+    root.classList.remove('itv-section-collapsed')
+  }
+  // 更新箭头
+  document.querySelectorAll('.itv-arrow').forEach(el => {
+    const sectionId = (el as HTMLElement).dataset.section
+    const section = document.getElementById(sectionId || '')
+    if (section && section.classList.contains('itv-section-open')) {
+      el.classList.add('itv-arrow-expanded')
+      el.classList.remove('itv-arrow-collapsed')
+      el.textContent = '▼'
+    } else {
+      el.classList.add('itv-arrow-collapsed')
+      el.classList.remove('itv-arrow-expanded')
+      el.textContent = '▶'
+    }
+  })
+}
+
+// 暴露到 window 供 onclick 调用
+;(window as any).__toggleTextSection = function(sectionId: string, arrowEl: HTMLElement) {
+  const section = document.getElementById(sectionId)
+  if (!section) return
+  const isOpen = section.classList.contains('itv-section-open')
+  if (isOpen) {
+    section.classList.remove('itv-section-open')
+    section.classList.add('itv-section-collapsed')
+    arrowEl.classList.remove('itv-arrow-expanded')
+    arrowEl.classList.add('itv-arrow-collapsed')
+    arrowEl.textContent = '▶'
+  } else {
+    section.classList.remove('itv-section-collapsed')
+    section.classList.add('itv-section-open')
+    arrowEl.classList.remove('itv-arrow-collapsed')
+    arrowEl.classList.add('itv-arrow-expanded')
+    arrowEl.textContent = '▼'
+  }
+}
+
+// ============ 通用逻辑 ============
+
 function tryParse(): any {
   try { return JSON.parse(input.value) } catch { return null }
 }
 
-function updateTree(obj: any) { parsedJson.value = obj; treeHtml.value = renderTree(obj) }
+function updateTree(obj: any) {
+  parsedJson.value = obj
+  treeHtml.value = renderTree(obj)
+  textInteractiveHtml.value = renderInteractiveText(obj)
+}
 
 function format() {
   try { const obj = JSON.parse(input.value); output.value = JSON.stringify(obj, null, 2); updateTree(obj); errorMessage.value = '' }
@@ -259,6 +446,7 @@ watch(jsonPath, runJsonPath)
 </script>
 
 <style>
+/* ======== 树形视图样式 ======== */
 .tree-view { font-size: 13px; line-height: 1.9; }
 .tree-view .tn { }
 .tree-view .tl { display: flex; align-items: center; gap: 4px; padding: 1px 4px; border-radius: 4px; cursor: pointer; user-select: none; }
@@ -276,4 +464,59 @@ watch(jsonPath, runJsonPath)
 .tree-view .tk { color: #6366f1; margin-right: 4px; }
 .tree-view .tb2 { color: #94a3b8; }
 .tree-view .tb2.hidden { display: none; }
+
+/* ======== 交互式文本视图样式 ======== */
+.text-interactive-view {
+  white-space: pre;
+  line-height: 1.8;
+  font-size: 13px;
+}
+
+/* 值颜色 */
+.itv-string { color: #16a34a; }
+.itv-number { color: #2563eb; }
+.itv-bool { color: #9333ea; }
+.itv-null { color: #94a3b8; }
+.itv-key { color: #6366f1; }
+.itv-bracket { color: #94a3b8; }
+.itv-close-bracket { }
+
+/* 折叠箭头 */
+.itv-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+  color: #94a3b8;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 3px;
+  margin: 0 2px;
+  vertical-align: middle;
+  transition: background .15s, transform .15s;
+}
+.itv-arrow:hover {
+  background: #e2e8f0;
+  color: #64748b;
+}
+.itv-arrow-expanded {
+  /* 展开状态，不需要额外旋转 */
+}
+.itv-arrow-collapsed {
+  /* 折叠状态 */
+}
+
+/* 折叠/展开区域 */
+.itv-section { }
+.itv-section.itv-section-open { }
+.itv-section.itv-section-collapsed {
+  display: none;
+}
+
+/* 根级区域 */
+.itv-root {
+  display: inline;
+}
 </style>

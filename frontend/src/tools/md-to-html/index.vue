@@ -54,7 +54,7 @@ const meta: ToolMeta = {
   name: 'Markdown → HTML',
   description: '将 Markdown 文本实时转换为 HTML，支持 GFM 语法',
   icon: 'file-code',
-  category: 'document',
+  category: 'document', group: 'Markdown',
 }
 defineExpose({ meta })
 

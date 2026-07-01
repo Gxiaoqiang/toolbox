@@ -29,7 +29,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useToast } from '@/composables/useToast'
 
 defineOptions({ inheritAttrs: false })
-const meta: ToolMeta = { id: 'json-to-xml', name: 'JSON ↔ XML', description: 'JSON 与 XML 格式互转', icon: '', category: 'develop' }
+const meta: ToolMeta = { id: 'json-to-xml', name: 'JSON ↔ XML', description: 'JSON 与 XML 格式互转', icon: '', category: 'develop', group: 'JSON' }
 defineExpose({ meta })
 
 const jsonInput = ref('{"root":{"item":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]}}')
