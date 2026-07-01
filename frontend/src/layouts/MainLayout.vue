@@ -55,7 +55,13 @@
                 class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"
               ></span>
 
-              <span class="text-sm flex-shrink-0 w-5 text-center">{{ tool.meta.icon }}</span>
+              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                :class="{
+                  'bg-blue-400': tool.meta.category === 'document',
+                  'bg-violet-400': tool.meta.category === 'develop',
+                  'bg-emerald-400': tool.meta.category === 'data',
+                }"
+              ></span>
               <span class="truncate">{{ tool.meta.name }}</span>
               <span
                 v-if="tool.meta.requiresBackend"
@@ -82,8 +88,15 @@
         v-if="currentTool"
         class="px-6 py-3.5 bg-white/70 backdrop-blur border-b border-slate-200/60 flex items-center gap-3 flex-shrink-0"
       >
-        <div class="w-7 h-7 rounded-md bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
-          <span class="text-sm">{{ currentTool.meta.icon }}</span>
+        <div
+          class="w-7 h-7 rounded-md flex items-center justify-center"
+          :class="{
+            'bg-blue-100': currentTool.meta.category === 'document',
+            'bg-violet-100': currentTool.meta.category === 'develop',
+            'bg-emerald-100': currentTool.meta.category === 'data',
+          }"
+        >
+          <span class="text-sm">{{ CATEGORY_CONFIG[currentTool.meta.category].emoji }}</span>
         </div>
         <div>
           <h2 class="text-sm font-semibold text-slate-800">{{ currentTool.meta.name }}</h2>
