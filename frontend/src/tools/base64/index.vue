@@ -2,10 +2,10 @@
   <div class="flex gap-4 h-full">
     <div class="flex-1 flex flex-col">
       <label class="text-xs font-semibold text-slate-500 mb-2">原文</label>
-      <textarea v-model="plainText" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="输入要编码/解码的文本..."></textarea>
+      <textarea v-model="plainText" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="输入要编码/解码的文本..."></textarea>
     </div>
     <div class="flex flex-col justify-center gap-3">
-      <button @click="encode" class="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors">▼ 编码</button>
+      <button @click="encode" class="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-colors">▼ 编码</button>
       <button @click="decode" class="px-4 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white text-sm font-medium transition-colors">▲ 解码</button>
     </div>
     <div class="flex-1 flex flex-col">

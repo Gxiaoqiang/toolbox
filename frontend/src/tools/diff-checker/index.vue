@@ -3,11 +3,11 @@
     <div class="flex gap-4" style="height: 38%">
       <div class="flex-1 flex flex-col">
         <label class="text-xs font-semibold text-slate-500 mb-2">原始文本</label>
-        <textarea v-model="leftText" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="粘贴原始文本..." @input="runDiff"></textarea>
+        <textarea v-model="leftText" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="粘贴原始文本..." @input="runDiff"></textarea>
       </div>
       <div class="flex-1 flex flex-col">
         <label class="text-xs font-semibold text-slate-500 mb-2">对比文本</label>
-        <textarea v-model="rightText" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="粘贴对比文本..." @input="runDiff"></textarea>
+        <textarea v-model="rightText" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="粘贴对比文本..." @input="runDiff"></textarea>
       </div>
     </div>
     <div class="flex-1 flex flex-col">

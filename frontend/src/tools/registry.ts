@@ -36,7 +36,7 @@ export async function loadTools(): Promise<ToolDefinition[]> {
       id: toolId,
       name: toolId,
       description: '',
-      icon: 'puzzle',
+      icon: 'wrench',
       category: 'develop',
     }
 

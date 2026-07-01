@@ -3,9 +3,9 @@
     <div class="flex-1 flex flex-col">
       <div class="flex items-center justify-between mb-2">
         <label class="text-xs font-semibold text-slate-500">YAML 输入</label>
-        <button @click="yamlToJson" class="px-3 py-1 text-xs rounded-md bg-blue-500 hover:bg-blue-600 text-white">YAML → JSON</button>
+        <button @click="yamlToJson" class="px-3 py-1 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600 text-white">YAML → JSON</button>
       </div>
-      <textarea v-model="yamlInput" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="key: value"></textarea>
+      <textarea v-model="yamlInput" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="key: value"></textarea>
       <p v-if="errorMessage" class="mt-1 text-xs text-red-500">{{ errorMessage }}</p>
     </div>
     <div class="flex-1 flex flex-col">

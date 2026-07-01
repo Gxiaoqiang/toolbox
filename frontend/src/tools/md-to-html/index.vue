@@ -8,7 +8,7 @@
       </div>
       <textarea
         v-model="input"
-        class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-400"
+        class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400"
         placeholder="# 在这里输入 Markdown..."
         @input="renderHtml"
       ></textarea>
@@ -27,7 +27,7 @@
           </button>
           <button
             @click="downloadHtml"
-            class="px-3 py-1 text-xs rounded-md bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+            class="px-3 py-1 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600 text-white transition-colors"
           >
             下载 .html
           </button>

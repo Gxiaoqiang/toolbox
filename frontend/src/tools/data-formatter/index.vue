@@ -8,10 +8,10 @@
           <option value="json">JSON</option>
         </select>
       </div>
-      <textarea v-model="input" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" :placeholder="inputFormat === 'csv' ? 'name,age,city' + '\nAlice,30,NYC' : '[{&quot;name&quot;:&quot;Alice&quot;}]'"></textarea>
+      <textarea v-model="input" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" :placeholder="inputFormat === 'csv' ? 'name,age,city' + '\nAlice,30,NYC' : '[{&quot;name&quot;:&quot;Alice&quot;}]'"></textarea>
       <div class="flex gap-2 mt-2">
-        <button @click="convert('json')" class="px-3 py-1 text-xs rounded-md bg-blue-500 hover:bg-blue-600 text-white">→ JSON</button>
-        <button @click="convert('csv')" class="px-3 py-1 text-xs rounded-md bg-blue-500 hover:bg-blue-600 text-white">→ CSV</button>
+        <button @click="convert('json')" class="px-3 py-1 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600 text-white">→ JSON</button>
+        <button @click="convert('csv')" class="px-3 py-1 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600 text-white">→ CSV</button>
         <button @click="dedupe" class="px-3 py-1 text-xs rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">去重</button>
         <button @click="sortData" class="px-3 py-1 text-xs rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">排序</button>
       </div>

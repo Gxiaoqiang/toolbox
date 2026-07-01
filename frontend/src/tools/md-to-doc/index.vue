@@ -10,7 +10,7 @@
           class="px-4 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5"
           :class="converting
             ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            : 'bg-blue-500 hover:bg-blue-600 text-white'"
+            : 'bg-indigo-500 hover:bg-indigo-600 text-white'"
         >
           <span v-if="converting" class="inline-block animate-spin text-xs">⟳</span>
           <span>{{ converting ? '转换中...' : '转为 DOCX 并下载' }}</span>
@@ -18,7 +18,7 @@
       </div>
       <textarea
         v-model="markdown"
-        class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-400"
+        class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400"
         placeholder="# 在这里输入 Markdown..."
       ></textarea>
     </div>

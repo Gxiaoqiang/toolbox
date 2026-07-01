@@ -4,14 +4,14 @@
       <div class="flex items-center justify-between mb-2">
         <label class="text-xs font-semibold text-slate-500">JSON 输入</label>
         <div class="flex gap-2">
-          <button @click="format" class="px-3 py-1 text-xs rounded-md bg-blue-500 hover:bg-blue-600 text-white">格式化</button>
+          <button @click="format" class="px-3 py-1 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600 text-white">格式化</button>
           <button @click="compress" class="px-3 py-1 text-xs rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">压缩</button>
           <button @click="validateJson" class="px-3 py-1 text-xs rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">校验</button>
         </div>
       </div>
       <textarea
         v-model="input"
-        class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
         :class="{ 'border-red-400': errorMessage }"
         placeholder='{"key": "value"}'
       ></textarea>
