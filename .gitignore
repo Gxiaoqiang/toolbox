@@ -1,0 +1,22 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Maven
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/node/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Superpowers internal
+.superpowers/
