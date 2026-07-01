@@ -11,7 +11,7 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/tools/md-to-html',
+          redirect: '/tools/md-toolbox',
         },
         {
           path: 'tools/:toolId',
