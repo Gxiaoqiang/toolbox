@@ -4,7 +4,7 @@
 
 ## 在线体验
 
-启动后访问 `http://localhost:8080`
+启动后访问 `http://localhost:8899`
 
 ## 功能清单（11 个工具）
 
@@ -81,7 +81,7 @@ mvn clean package -DskipTests
 
 # 运行
 java -jar target/toolbox-1.0.0.jar
-# 浏览器打开 http://localhost:8080
+# 浏览器打开 http://localhost:8899
 ```
 
 ## 项目结构
