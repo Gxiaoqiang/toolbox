@@ -1,12 +1,31 @@
 <template>
   <div class="max-w-2xl mx-auto flex flex-col gap-6">
     <h3 class="text-base font-semibold text-slate-700">哈希计算 (MD5 / SHA)</h3>
+
     <!-- 输入 -->
     <div class="flex flex-col">
       <label class="text-xs font-semibold text-slate-500 mb-2">输入文本</label>
-      <textarea v-model="input" class="w-full p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" rows="4" placeholder="输入要计算哈希的文本..."
-        @input="computeAll"></textarea>
+      <textarea v-model="input" class="w-full p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" rows="3"
+        placeholder="输入要计算哈希的文本..." @input="computeAll"></textarea>
     </div>
+
+    <!-- 加盐 -->
+    <div class="p-4 bg-white border border-slate-200 rounded-xl">
+      <label class="text-xs font-semibold text-slate-500 mb-2 block">加盐 (Salt) — 可选</label>
+      <div class="flex items-center gap-3">
+        <input v-model="salt" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          placeholder="盐值，留空则不加盐" @input="computeAll" />
+        <select v-model="saltPosition" class="px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          @change="computeAll">
+          <option value="append">原文 + 盐</option>
+          <option value="prepend">盐 + 原文</option>
+        </select>
+      </div>
+      <p v-if="salt" class="mt-2 text-[10px] text-slate-400 break-all font-mono">
+        实际计算: {{ saltPosition === 'prepend' ? salt + input : input + salt }}
+      </p>
+    </div>
+
     <!-- 结果 -->
     <div class="space-y-3">
       <div v-for="algo in algorithms" :key="algo.name" class="p-4 bg-white border border-slate-200 rounded-xl">
@@ -29,10 +48,12 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useToast } from '@/composables/useToast'
 
 defineOptions({ inheritAttrs: false })
-const meta: ToolMeta = { id: 'hash-generator', name: '哈希计算', description: 'MD5 / SHA1 / SHA256 / SHA512 哈希', icon: '', category: 'develop' }
+const meta: ToolMeta = { id: 'hash-generator', name: '哈希计算', description: 'MD5 / SHA1 / SHA256 / SHA512 哈希（支持加盐）', icon: '', category: 'develop' }
 defineExpose({ meta })
 
 const input = ref('Hello, World!')
+const salt = ref('')
+const saltPosition = ref<'append' | 'prepend'>('append')
 const results = reactive<Record<string, string>>({})
 const { copy } = useClipboard()
 const { success } = useToast()
@@ -45,7 +66,7 @@ const algorithms = [
 ]
 
 async function computeAll() {
-  const text = input.value
+  const text = salt.value ? (saltPosition.value === 'prepend' ? salt.value + input.value : input.value + salt.value) : input.value
   if (!text) { algorithms.forEach(a => results[a.name] = ''); return }
   for (const { name, algo } of algorithms) {
     try {
