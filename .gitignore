@@ -20,3 +20,8 @@ Thumbs.db
 
 # Superpowers internal
 .superpowers/
+docs/superpowers/
+
+# Temp
+/tmp/
+*.tmp
