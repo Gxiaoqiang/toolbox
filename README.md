@@ -84,6 +84,19 @@ java -jar target/toolbox-1.0.0.jar
 # 浏览器打开 http://localhost:8899
 ```
 
+### Docker 部署
+
+```bash
+# 构建镜像（确保已执行过 mvn package）
+docker build -t toolbox:1.0.0 .
+
+# 启动容器
+docker run -d -p 8899:8899 --name toolbox toolbox:1.0.0
+
+# 查看日志
+docker logs -f toolbox
+```
+
 ## 项目结构
 
 ```
