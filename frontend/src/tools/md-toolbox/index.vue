@@ -20,6 +20,36 @@
 
       <textarea v-model="input" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea"
         placeholder="# 在这里输入 Markdown..." @input="renderHtml"></textarea>
+
+      <!-- 语法参考面板 -->
+      <div class="mt-2 flex-shrink-0 border rounded-lg overflow-hidden transition-colors duration-300" style="border-color: var(--border-color)">
+        <button
+          @click="toggleSyntaxRef"
+          class="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors hover:bg-slate-50"
+          style="color: var(--text-secondary)"
+        >
+          <span class="transform transition-transform duration-200 text-[10px]" :class="{ 'rotate-90': syntaxRefOpen }">▶</span>
+          <span>Markdown 语法速查</span>
+        </button>
+        <div v-show="syntaxRefOpen" class="h-48 overflow-y-auto border-t transition-colors duration-300" style="border-color: var(--border-color)">
+          <table class="w-full text-xs" style="color: var(--text-secondary)">
+            <thead>
+              <tr style="background: var(--bg-card-hover)">
+                <th class="px-3 py-1.5 text-left font-medium">语法</th>
+                <th class="px-3 py-1.5 text-left font-medium">效果</th>
+                <th class="px-3 py-1.5 text-left font-medium">写法</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in syntaxRefs" :key="idx" class="border-t transition-colors" style="border-color: var(--border-color)">
+                <td class="px-3 py-1 font-mono" style="color: var(--text-primary)">{{ item.syntax }}</td>
+                <td class="px-3 py-1">{{ item.effect }}</td>
+                <td class="px-3 py-1 font-mono" style="color: var(--accent-color)">{{ item.code }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- 右侧：Tab 内容 -->
@@ -212,6 +242,33 @@ function insertMarkdown(action: InsertAction) {
     renderHtml()
   })
 }
+// ======== 语法速查 ========
+
+const syntaxRefOpen = ref(false)
+
+const syntaxRefs = [
+  { syntax: '# 标题', effect: '一级标题', code: '# text' },
+  { syntax: '## 标题', effect: '二级标题', code: '## text' },
+  { syntax: '### 标题', effect: '三级标题', code: '### text' },
+  { syntax: '**粗体**', effect: '加粗文字', code: '**text**' },
+  { syntax: '*斜体*', effect: '斜体文字', code: '*text*' },
+  { syntax: '~~删除线~~', effect: '删除文字', code: '~~text~~' },
+  { syntax: '`代码`', effect: '行内代码', code: '`code`' },
+  { syntax: '```代码块', effect: '多行代码', code: '```lang' },
+  { syntax: '- 列表', effect: '无序列表', code: '- item' },
+  { syntax: '1. 列表', effect: '有序列表', code: '1. item' },
+  { syntax: '- [ ] 任务', effect: '任务列表', code: '- [ ] item' },
+  { syntax: '> 引用', effect: '引用文字', code: '> text' },
+  { syntax: '[文字](url)', effect: '超链接', code: '[text](url)' },
+  { syntax: '![alt](url)', effect: '图片', code: '![alt](url)' },
+  { syntax: '---', effect: '分割线', code: '---' },
+  { syntax: '| 表 | 格 |', effect: '表格', code: '| a | b |' },
+]
+
+function toggleSyntaxRef() {
+  syntaxRefOpen.value = !syntaxRefOpen.value
+}
+
 function copyHtml() { copy(htmlOutput.value); success('HTML 已复制') }
 function downloadHtml() {
   const h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>Output</title><style>body{max-width:900px;margin:0 auto;padding:2rem;font-family:-apple-system,sans-serif;line-height:1.6;color:#1a1a2e}h1{border-bottom:2px solid #eee;padding-bottom:.3em}h2{border-bottom:1px solid #eee;padding-bottom:.3em}pre{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto}code{background:#f0f0f0;padding:.2em .4em;border-radius:4px}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f5}blockquote{border-left:4px solid #0366d6;padding-left:1rem;color:#555}</style></head><body>' + htmlOutput.value + '</body></html>'
