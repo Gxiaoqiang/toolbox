@@ -3,7 +3,22 @@
     <!-- 左侧：Markdown 编辑器 -->
     <div class="flex-1 flex flex-col min-w-0 h-full">
       <label class="text-xs font-semibold text-slate-500 mb-2 flex-shrink-0">Markdown 输入</label>
-      <textarea v-model="input" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400"
+
+      <!-- 快捷插入工具栏 -->
+      <div class="flex flex-wrap gap-x-1 gap-y-0.5 mb-2 flex-shrink-0">
+        <template v-for="(group, gi) in toolbarButtons" :key="group.group">
+          <span v-if="gi > 0" class="mx-0.5 w-px h-5 self-center bg-slate-200"></span>
+          <button
+            v-for="btn in group.items"
+            :key="btn.label"
+            @click="insertMarkdown(btn.action)"
+            :title="btn.title"
+            class="px-1.5 py-0.5 text-xs rounded font-mono transition-colors hover:bg-indigo-50 hover:text-indigo-600 text-slate-500"
+          >{{ btn.label }}</button>
+        </template>
+      </div>
+
+      <textarea v-model="input" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea"
         placeholder="# 在这里输入 Markdown..." @input="renderHtml"></textarea>
     </div>
 
@@ -95,6 +110,108 @@ const { copied, copy } = useClipboard()
 const { success, error: toastError } = useToast()
 
 function renderHtml() { try { htmlOutput.value = marked.parse(input.value) as string } catch { htmlOutput.value = '<p style="color:red">解析错误</p>' } }
+
+// ======== 光标插入工具 ========
+
+interface InsertAction {
+  syntax: string  // 插入语法模板，用 | 分隔光标位置，|P| 表示 placeholder
+  placeholder?: string
+  wrap?: boolean  // 是否包裹选中文字
+}
+
+const toolbarButtons: { group: string; items: { label: string; title: string; action: InsertAction }[] }[] = [
+  {
+    group: 'heading',
+    items: [
+      { label: 'H1', title: '一级标题', action: { syntax: '# |P|', placeholder: '标题' } },
+      { label: 'H2', title: '二级标题', action: { syntax: '## |P|', placeholder: '标题' } },
+      { label: 'H3', title: '三级标题', action: { syntax: '### |P|', placeholder: '标题' } },
+    ],
+  },
+  {
+    group: 'format',
+    items: [
+      { label: 'B', title: '粗体', action: { syntax: '**|P|**', placeholder: '粗体文字', wrap: true } },
+      { label: 'I', title: '斜体', action: { syntax: '*|P|*', placeholder: '斜体文字', wrap: true } },
+      { label: 'S', title: '删除线', action: { syntax: '~~|P|~~', placeholder: '删除文字', wrap: true } },
+      { label: '`', title: '行内代码', action: { syntax: '`|P|`', placeholder: 'code', wrap: true } },
+    ],
+  },
+  {
+    group: 'list',
+    items: [
+      { label: '•', title: '无序列表', action: { syntax: '- |P|', placeholder: '列表项' } },
+      { label: '1.', title: '有序列表', action: { syntax: '1. |P|', placeholder: '列表项' } },
+      { label: '☑', title: '任务列表', action: { syntax: '- [ ] |P|', placeholder: '待办' } },
+      { label: '❝', title: '引用', action: { syntax: '> |P|', placeholder: '引用文字' } },
+    ],
+  },
+  {
+    group: 'insert',
+    items: [
+      { label: '🔗', title: '链接', action: { syntax: '[|P|](url)', placeholder: '链接文字' } },
+      { label: '💼', title: '图片', action: { syntax: '![|P|](url)', placeholder: '图片描述' } },
+      { label: 'code', title: '代码块', action: { syntax: '```\n|P|\n```', placeholder: 'code' } },
+      { label: '三', title: '表格', action: { syntax: '| 列1 | 列2 | 列3 |\n|-----|-----|-----|\n| |P| | |', placeholder: '内容' } },
+      { label: '―', title: '分割线', action: { syntax: '\n---\n' } },
+    ],
+  },
+]
+
+function insertMarkdown(action: InsertAction) {
+  const textarea = document.querySelector('.md-editor-textarea') as HTMLTextAreaElement
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const selected = input.value.substring(start, end)
+  const hasSelection = start !== end
+
+  let syntax = action.syntax
+  let cursorOffset = 0
+
+  if (hasSelection && action.wrap) {
+    // 包裹选中文字
+    syntax = syntax.replace('|P|', selected)
+    cursorOffset = syntax.length
+  } else if (action.placeholder) {
+    // 有 placeholder：替换 |P| 为 placeholder，光标选中 placeholder
+    syntax = syntax.replace('|P|', action.placeholder)
+    cursorOffset = syntax.indexOf(action.placeholder) + action.placeholder.length
+  } else {
+    // 无 placeholder：去掉 |P|
+    syntax = syntax.replace('|P|', '')
+    cursorOffset = syntax.length
+  }
+
+  // 组合新文本
+  const newText = input.value.substring(0, start) + syntax + input.value.substring(end)
+  input.value = newText
+
+  // 恢复光标位置
+  void (document.querySelector('.md-editor-textarea') as HTMLTextAreaElement)?.focus()
+  // 下一帧设置光标
+  requestAnimationFrame(() => {
+    const ta = document.querySelector('.md-editor-textarea') as HTMLTextAreaElement
+    if (!ta) return
+    if (hasSelection && action.wrap) {
+      // 包裹模式：光标移到语法末尾
+      ta.selectionStart = start + cursorOffset
+      ta.selectionEnd = start + cursorOffset
+    } else if (action.placeholder) {
+      // placeholder 模式：选中 placeholder 文字
+      const placeholderStart = start + syntax.indexOf(action.placeholder!)
+      ta.selectionStart = placeholderStart
+      ta.selectionEnd = placeholderStart + action.placeholder!.length
+    } else {
+      // 普通模式：光标移到语法末尾
+      ta.selectionStart = start + cursorOffset
+      ta.selectionEnd = start + cursorOffset
+    }
+    ta.focus()
+    renderHtml()
+  })
+}
 function copyHtml() { copy(htmlOutput.value); success('HTML 已复制') }
 function downloadHtml() {
   const h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>Output</title><style>body{max-width:900px;margin:0 auto;padding:2rem;font-family:-apple-system,sans-serif;line-height:1.6;color:#1a1a2e}h1{border-bottom:2px solid #eee;padding-bottom:.3em}h2{border-bottom:1px solid #eee;padding-bottom:.3em}pre{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto}code{background:#f0f0f0;padding:.2em .4em;border-radius:4px}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f5}blockquote{border-left:4px solid #0366d6;padding-left:1rem;color:#555}</style></head><body>' + htmlOutput.value + '</body></html>'
