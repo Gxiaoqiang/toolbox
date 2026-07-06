@@ -2,23 +2,23 @@
   <div class="flex gap-4 h-full">
     <!-- 左侧：Markdown 编辑器 -->
     <div class="flex-1 flex flex-col min-w-0 h-full">
-      <label class="text-xs font-semibold text-slate-500 mb-2 flex-shrink-0">Markdown 输入</label>
+      <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">Markdown 输入</label>
 
       <!-- 快捷插入工具栏 -->
       <div class="flex flex-wrap gap-x-1 gap-y-0.5 mb-2 flex-shrink-0">
         <template v-for="(group, gi) in toolbarButtons" :key="group.group">
-          <span v-if="gi > 0" class="mx-0.5 w-px h-5 self-center bg-slate-200"></span>
+          <span v-if="gi > 0" class="mx-0.5 w-px h-5 self-center" style="background: var(--border-color)"></span>
           <button
             v-for="btn in group.items"
             :key="btn.label"
             @click="insertMarkdown(btn.action)"
             :title="btn.title"
-            class="px-1.5 py-0.5 text-xs rounded font-mono transition-colors hover:bg-indigo-50 hover:text-indigo-600 text-slate-500"
+            class="px-1.5 py-0.5 text-xs rounded font-mono transition-colors hover:bg-indigo-50 hover:text-indigo-600" style="color: var(--text-muted)"
           >{{ btn.label }}</button>
         </template>
       </div>
 
-      <textarea v-model="input" class="flex-1 p-4 border border-slate-200 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea"
+      <textarea v-model="input" class="flex-1 p-4 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea" style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)"
         placeholder="# 在这里输入 Markdown..." @input="renderHtml"></textarea>
 
       <!-- 语法参考面板 -->
@@ -56,33 +56,35 @@
     <div class="flex-1 flex flex-col min-w-0 h-full">
       <!-- 工具栏 -->
       <div class="flex items-center justify-between mb-2 flex-shrink-0">
-        <div class="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
+        <div class="flex gap-0.5 rounded-lg p-0.5" style="background: var(--bg-card-hover)">
           <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
             class="px-3 py-1 text-xs rounded-md transition-colors"
-            :class="activeTab === tab.key ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+            :class="activeTab === tab.key ? 'bg-white shadow-sm font-medium' : ''"
+            :style="activeTab === tab.key ? { color: 'var(--text-primary)' } : { color: 'var(--text-muted)' }"
           >{{ tab.label }}</button>
         </div>
         <div v-if="activeTab === 'html'" class="flex gap-2">
-          <button @click="copyHtml" class="px-3 py-1 text-xs rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">{{ copied ? '✓ 已复制' : '复制 HTML' }}</button>
+          <button @click="copyHtml" class="px-3 py-1 text-xs rounded-md" style="background: var(--bg-card-hover); color: var(--text-secondary)">{{ copied ? '✓ 已复制' : '复制 HTML' }}</button>
           <button @click="downloadHtml" class="px-3 py-1 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600 text-white">下载 .html</button>
         </div>
         <button v-else @click="convertToDocx" :disabled="converting"
           class="px-4 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5"
-          :class="converting ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600 text-white'">
+          :class="converting ? 'cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600 text-white'"
+          :style="converting ? { background: 'var(--bg-card-hover)', color: 'var(--text-muted)' } : {}">
           <span v-if="converting" class="inline-block animate-spin text-xs">⟳</span>
           <span>{{ converting ? '转换中...' : '转为 DOCX 并下载' }}</span>
         </button>
       </div>
 
       <!-- HTML 预览区 -->
-      <div v-if="activeTab === 'html'" class="flex-1 p-4 border border-slate-200 rounded-lg overflow-auto bg-white markdown-body" v-html="htmlOutput"></div>
+      <div v-if="activeTab === 'html'" class="flex-1 p-4 rounded-lg overflow-auto markdown-body" style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary)" v-html="htmlOutput"></div>
 
       <!-- DOCX 下载区 -->
-      <div v-else class="flex-1 p-6 border border-slate-200 rounded-lg overflow-auto bg-white flex flex-col items-center justify-center gap-4">
+      <div v-else class="flex-1 p-6 rounded-lg overflow-auto flex flex-col items-center justify-center gap-4" style="background: var(--bg-card); border-color: var(--border-color)">
         <div class="text-center">
           <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-indigo-100 flex items-center justify-center"><span class="text-xl">📄</span></div>
-          <h4 class="text-sm font-semibold text-slate-700 mb-1">导出为 Word 文档</h4>
-          <p class="text-xs text-slate-400">将 Markdown 内容转换为 .docx 文件</p>
+          <h4 class="text-sm font-semibold mb-1" style="color: var(--text-primary)">导出为 Word 文档</h4>
+          <p class="text-xs" style="color: var(--text-muted)">将 Markdown 内容转换为 .docx 文件</p>
         </div>
       </div>
     </div>
@@ -296,17 +298,17 @@ renderHtml()
 </script>
 
 <style scoped>
-.markdown-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.7; color: #1a1a2e; word-wrap: break-word; }
-.markdown-body :deep(h1) { font-size: 1.8em; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.3em; margin: 0.8em 0 0.5em; }
-.markdown-body :deep(h2) { font-size: 1.4em; font-weight: 600; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25em; margin: 0.8em 0 0.4em; }
+.markdown-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.7; color: var(--text-primary); word-wrap: break-word; }
+.markdown-body :deep(h1) { font-size: 1.8em; font-weight: 700; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3em; margin: 0.8em 0 0.5em; }
+.markdown-body :deep(h2) { font-size: 1.4em; font-weight: 600; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25em; margin: 0.8em 0 0.4em; }
 .markdown-body :deep(h3) { font-size: 1.15em; font-weight: 600; margin: 0.7em 0 0.3em; }
 .markdown-body :deep(pre) { background: #1e1e2e; color: #cdd6f4; padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0.6em 0; font-size: 13px; line-height: 1.5; }
-.markdown-body :deep(code) { background: #f0f0f0; padding: 0.2em 0.4em; border-radius: 3px; font-family: "JetBrains Mono", monospace; font-size: 0.88em; }
+.markdown-body :deep(code) { background: var(--bg-card-hover); padding: 0.2em 0.4em; border-radius: 3px; font-family: "JetBrains Mono", monospace; font-size: 0.88em; }
 .markdown-body :deep(pre code) { background: none; padding: 0; color: inherit; }
 .markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 0.6em 0; }
-.markdown-body :deep(th), .markdown-body :deep(td) { border: 1px solid #e5e7eb; padding: 8px 14px; }
-.markdown-body :deep(th) { background: #f8fafc; font-weight: 600; }
-.markdown-body :deep(blockquote) { border-left: 4px solid #3b82f6; padding: 0.3em 1rem; color: #64748b; margin: 0.5em 0; }
+.markdown-body :deep(th), .markdown-body :deep(td) { border: 1px solid var(--border-color); padding: 8px 14px; }
+.markdown-body :deep(th) { background: var(--bg-card-hover); font-weight: 600; }
+.markdown-body :deep(blockquote) { border-left: 4px solid #3b82f6; padding: 0.3em 1rem; color: var(--text-secondary); margin: 0.5em 0; }
 .markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 2em; }
 .markdown-body :deep(a) { color: #3b82f6; }
 </style>
