@@ -18,7 +18,7 @@
         </template>
       </div>
 
-      <textarea v-model="input" class="flex-1 p-4 rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea" style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)"
+      <textarea v-model="input" class="flex-1 p-4 border rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea" style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)"
         placeholder="# 在这里输入 Markdown..." @input="renderHtml"></textarea>
 
       <!-- 语法参考面板 -->
@@ -77,10 +77,10 @@
       </div>
 
       <!-- HTML 预览区 -->
-      <div v-if="activeTab === 'html'" class="flex-1 p-4 rounded-lg overflow-auto markdown-body" style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary)" v-html="htmlOutput"></div>
+      <div v-if="activeTab === 'html'" class="flex-1 p-4 border rounded-lg overflow-auto markdown-body" style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary)" v-html="htmlOutput"></div>
 
       <!-- DOCX 下载区 -->
-      <div v-else class="flex-1 p-6 rounded-lg overflow-auto flex flex-col items-center justify-center gap-4" style="background: var(--bg-card); border-color: var(--border-color)">
+      <div v-else class="flex-1 p-6 border rounded-lg overflow-auto flex flex-col items-center justify-center gap-4" style="background: var(--bg-card); border-color: var(--border-color)">
         <div class="text-center">
           <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-indigo-100 flex items-center justify-center"><span class="text-xl">📄</span></div>
           <h4 class="text-sm font-semibold mb-1" style="color: var(--text-primary)">导出为 Word 文档</h4>
