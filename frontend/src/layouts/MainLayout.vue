@@ -67,47 +67,53 @@
     </aside>
 
     <!-- 内容区 -->
-    <main class="flex-1 overflow-hidden flex flex-col relative">
-      <!-- 主题切换（始终可见） -->
-      <div class="absolute top-3 right-4 z-40">
-        <button
-          @click="toggleThemeMenu"
-          class="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all shadow-sm border"
-          style="background: var(--bg-card); border-color: var(--border-color)"
-          title="切换主题"
-        >{{ themeIcon }}</button>
-
-        <!-- 下拉菜单 -->
-        <div
-          v-if="themeMenuOpen"
-          class="absolute right-0 top-full mt-1.5 w-44 rounded-lg shadow-lg border z-50 overflow-hidden transition-colors duration-300"
-          style="background: var(--bg-card); border-color: var(--border-color); box-shadow: 0 4px 16px rgba(0,0,0,0.12)"
-        >
-          <button
-            v-for="opt in themeOptions"
-            :key="opt.key"
-            @click="selectTheme(opt.key)"
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-slate-50"
-            :class="theme === opt.key ? 'font-semibold' : ''"
-            :style="{ color: 'var(--text-primary)' }"
-          >
-            <span class="w-4 h-4 rounded-full border flex-shrink-0" :style="{ background: opt.color, borderColor: 'var(--border-color)' }"></span>
-            <span>{{ opt.icon }} {{ opt.label }}</span>
-            <span v-if="theme === opt.key" class="ml-auto text-xs" style="color: var(--accent-color)">✓</span>
-          </button>
-        </div>
-      </div>
-      <header v-if="currentTool" class="px-6 py-3.5 backdrop-blur border-b flex items-center gap-3 flex-shrink-0 transition-colors duration-300"
+    <main class="flex-1 overflow-hidden flex flex-col">
+      <!-- 顶栏（始终可见） -->
+      <header class="px-6 py-2.5 backdrop-blur border-b flex items-center gap-3 flex-shrink-0 transition-colors duration-300"
         style="background: var(--bg-sidebar); border-color: var(--sidebar-border)">
         <button v-if="sidebarCollapsed" @click="sidebarCollapsed = false" class="w-6 h-6 rounded flex items-center justify-center hover:bg-slate-100 text-xs" style="color: var(--text-muted)" title="展开侧边栏">☰</button>
-        <div class="w-7 h-7 rounded-md flex items-center justify-center" :class="{ 'bg-blue-100': currentTool.meta.category === 'document', 'bg-violet-100': currentTool.meta.category === 'develop', 'bg-emerald-100': currentTool.meta.category === 'data' }">
-          <span class="text-sm">{{ CATEGORY_CONFIG[currentTool.meta.category].emoji }}</span>
+        <template v-if="currentTool">
+          <div class="w-7 h-7 rounded-md flex items-center justify-center" :class="{ 'bg-blue-100': currentTool.meta.category === 'document', 'bg-violet-100': currentTool.meta.category === 'develop', 'bg-emerald-100': currentTool.meta.category === 'data' }">
+            <span class="text-sm">{{ CATEGORY_CONFIG[currentTool.meta.category].emoji }}</span>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold" style="color: var(--text-primary)">{{ currentTool.meta.name }}</h2>
+            <p class="text-[11px]" style="color: var(--text-muted)">{{ currentTool.meta.description }}</p>
+          </div>
+        </template>
+        <span v-else class="text-sm font-semibold" style="color: var(--text-muted)">选择一个工具开始使用</span>
+
+        <!-- 右侧操作区 -->
+        <div class="ml-auto flex items-center gap-2">
+          <!-- 主题切换 -->
+          <div class="relative">
+            <button
+              @click.stop="toggleThemeMenu"
+              class="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all border"
+              style="background: var(--bg-card); border-color: var(--border-color)"
+              title="切换主题"
+            >{{ themeIcon }}</button>
+
+            <div
+              v-if="themeMenuOpen"
+              class="absolute right-0 top-full mt-1.5 w-44 rounded-lg shadow-lg border z-50 overflow-hidden transition-colors duration-300"
+              style="background: var(--bg-card); border-color: var(--border-color); box-shadow: 0 4px 16px rgba(0,0,0,0.12)"
+            >
+              <button
+                v-for="opt in themeOptions"
+                :key="opt.key"
+                @click="selectTheme(opt.key)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-slate-50"
+                :class="theme === opt.key ? 'font-semibold' : ''"
+                :style="{ color: 'var(--text-primary)' }"
+              >
+                <span class="w-4 h-4 rounded-full border flex-shrink-0" :style="{ background: opt.color, borderColor: 'var(--border-color)' }"></span>
+                <span>{{ opt.icon }} {{ opt.label }}</span>
+                <span v-if="theme === opt.key" class="ml-auto text-xs" style="color: var(--accent-color)">✓</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <h2 class="text-sm font-semibold" style="color: var(--text-primary)">{{ currentTool.meta.name }}</h2>
-          <p class="text-[11px]" style="color: var(--text-muted)">{{ currentTool.meta.description }}</p>
-        </div>
-        <span class="ml-auto px-2 py-0.5 text-[10px] rounded-full font-medium" :class="currentCategoryBadgeClass">{{ CATEGORY_CONFIG[currentTool.meta.category].label }}</span>
       </header>
 
       <div v-if="!currentTool" class="flex-1 flex items-center justify-center">
@@ -177,11 +183,6 @@ function toggleCategory(key: ToolCategory) {
 const tools = computed(() => getTools())
 const currentTool = computed(() => tools.value.find((t) => t.meta.id === activeToolId.value))
 const totalToolCount = computed(() => tools.value.length)
-const currentCategoryBadgeClass = computed(() => {
-  if (!currentTool.value) return ''
-  return { document: 'bg-blue-50 text-blue-600', develop: 'bg-violet-50 text-violet-600', data: 'bg-emerald-50 text-emerald-600' }[currentTool.value.meta.category] || ''
-})
-
 interface CategoryWithGroups { key: ToolCategory; groups: { name: string | null; tools: typeof tools.value }[] }
 const categories = computed<CategoryWithGroups[]>(() => {
   const catOrder: ToolCategory[] = ['document', 'develop', 'data']
