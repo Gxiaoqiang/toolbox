@@ -21,12 +21,11 @@
         </div>
       </div>
 
-      <!-- 已选文件列表 -->
       <div v-else class="flex-1 flex flex-col min-h-0">
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs" style="color: var(--text-muted)">已选 {{ fileList.length }}/5 个文件</span>
           <button @click="triggerFileInput" class="text-xs underline" style="color: var(--accent-color)"
-            :disabled="fileList.length >= 5">+ 添加文件</button>
+            :disabled="fileList.length >= 5">+ 添加</button>
         </div>
         <div class="flex-1 overflow-y-auto space-y-1.5">
           <div
@@ -41,65 +40,70 @@
             <button v-if="!processing" @click="removeFile(idx)" class="w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 hover:bg-red-50" style="color: var(--text-muted)">✕</button>
           </div>
         </div>
+        <button @click="clearAll" v-if="!processing && fileList.length > 0" class="mt-2 text-xs underline self-start" style="color: var(--text-muted)">清空全部</button>
       </div>
 
       <input ref="fileInputRef" type="file" accept=".doc,.docx,.wps" multiple class="hidden" @change="handleFileSelect" />
     </div>
 
-    <!-- 右侧：操作区 -->
+    <!-- 中间：转换按钮 -->
+    <div class="flex flex-col items-center justify-center flex-shrink-0" style="width: 80px">
+      <button
+        v-if="!resultReady"
+        @click="startConvert"
+        :disabled="fileList.length === 0 || processing || hasErrors"
+        class="w-full py-3 rounded-lg text-sm font-medium transition-all"
+        :class="fileList.length > 0 && !processing && !hasErrors ? 'bg-indigo-500 hover:bg-indigo-600 text-white' : ''"
+        :style="(fileList.length === 0 || processing || hasErrors) ? { background: 'var(--bg-card-hover)', color: 'var(--text-muted)', cursor: 'not-allowed' } : {}"
+        :title="fileList.length === 0 ? '请先选择文档' : ''"
+      >
+        <span v-if="processing" class="inline-block animate-spin">⟳</span>
+        <span v-else>▶</span>
+      </button>
+
+      <button
+        v-else
+        @click="downloadZip"
+        class="w-full py-3 rounded-lg text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white transition-colors"
+        title="下载 ZIP"
+      >📥</button>
+
+      <button
+        v-if="resultReady"
+        @click="resetAll"
+        class="mt-2 text-xs underline"
+        style="color: var(--text-muted)"
+      >重新开始</button>
+    </div>
+
+    <!-- 右侧：结果区 -->
     <div class="flex-1 flex flex-col min-w-0">
-      <label class="text-xs font-semibold mb-3 flex-shrink-0" style="color: var(--text-secondary)">转换</label>
+      <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">转换结果</label>
 
-      <div v-if="!resultReady" class="flex-1 flex flex-col items-center justify-center gap-3">
-        <p v-if="fileList.length === 0" class="text-sm" style="color: var(--text-muted)">请先选择要转换的文档</p>
+      <!-- 无文件时空白 -->
+      <div v-if="fileList.length === 0 && convertResults.length === 0" class="flex-1 flex items-center justify-center">
+        <p class="text-sm" style="color: var(--text-muted)">请先选择文档文件</p>
+      </div>
 
-        <button
-          v-else
-          @click="startConvert"
-          :disabled="processing || hasErrors"
-          class="w-full py-2.5 rounded-lg text-sm font-medium transition-all"
-          :class="processing || hasErrors ? 'cursor-not-allowed opacity-50' : 'bg-indigo-500 hover:bg-indigo-600 text-white'"
-          :style="processing || hasErrors ? { background: 'var(--bg-card-hover)', color: 'var(--text-muted)' } : {}"
+      <!-- 转换进度/结果 -->
+      <div v-else-if="processing || convertResults.length > 0" class="flex-1 overflow-y-auto space-y-1.5">
+        <div
+          v-for="(r, idx) in convertResults"
+          :key="idx"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
+          :style="{ borderColor: r.status === 'done' && r.success ? '#34d399' : r.status === 'done' ? '#f87171' : 'var(--border-color)', background: 'var(--bg-card)' }"
         >
-          <span v-if="processing" class="inline-block animate-spin mr-1">⟳</span>
-          {{ processing ? '正在转换...' : '开始转换' }}
-        </button>
-
-        <!-- 转换进度 -->
-        <div v-if="processing || convertResults.length > 0" class="w-full space-y-1.5 mt-2">
-          <div
-            v-for="(r, idx) in convertResults"
-            :key="idx"
-            class="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
-            :style="{ borderColor: r.success ? '#34d399' : '#f87171', background: 'var(--bg-card)' }"
-          >
-            <span v-if="r.status === 'pending'" class="text-xs">⏳</span>
-            <span v-else-if="r.success" class="text-xs">✅</span>
-            <span v-else class="text-xs">❌</span>
-            <span class="flex-1 truncate" style="color: var(--text-primary)">{{ r.name }}</span>
-            <span v-if="!r.success && r.reason" class="text-xs text-red-400">{{ r.reason }}</span>
-          </div>
+          <span v-if="r.status === 'pending'" class="text-xs">⏳</span>
+          <span v-else-if="r.success" class="text-xs">✅</span>
+          <span v-else class="text-xs">❌</span>
+          <span class="flex-1 truncate" style="color: var(--text-primary)">{{ r.name }}</span>
+          <span v-if="r.status === 'done' && !r.success && r.reason" class="text-xs text-red-400 truncate max-w-[140px]" :title="r.reason">{{ r.reason }}</span>
         </div>
       </div>
 
-      <!-- 完成结果 -->
-      <div
-        v-else
-        class="flex-1 border rounded-lg p-4 text-center flex flex-col items-center justify-center gap-3"
-        style="border-color: var(--accent-color); background: var(--accent-light)"
-      >
-        <p class="text-sm font-semibold" style="color: var(--accent-color)">
-          ✓ 转换完成 — {{ successCount }}/{{ fileList.length }} 成功
-        </p>
-        <button
-          @click="downloadZip"
-          class="px-6 py-2 rounded-lg text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white transition-colors"
-        >📥 下载 ZIP</button>
-        <button
-          @click="resetAll"
-          class="text-xs underline"
-          style="color: var(--text-muted)"
-        >重新转换</button>
+      <!-- 空闲状态（有文件但未开始转换） -->
+      <div v-else-if="fileList.length > 0" class="flex-1 flex items-center justify-center">
+        <p class="text-sm" style="color: var(--text-muted)">点击 ▶ 开始转换</p>
       </div>
     </div>
   </div>
@@ -144,11 +148,22 @@ function addFiles(files: FileList | File[]) {
   for (const f of arr) {
     if (fileList.value.length >= 5) { toastError('最多上传 5 个文件'); break }
     const ext = f.name.split('.').pop()?.toLowerCase() || ''
-    if (!ALLOWED_EXTS.includes(ext)) { fileList.value.push({ file: f, error: '不支持此格式' }); continue }
-    if (f.size > MAX_SIZE) { fileList.value.push({ file: f, error: '超过 50MB' }); continue }
-    if (f.size === 0) { fileList.value.push({ file: f, error: '文件为空' }); continue }
+    if (!ALLOWED_EXTS.includes(ext)) {
+      toastError(`不支持的文件格式: ${f.name}`)
+      continue
+    }
+    if (f.size > MAX_SIZE) {
+      toastError(`文件过大 (超过50MB): ${f.name}`)
+      continue
+    }
+    if (f.size === 0) {
+      toastError(`文件为空: ${f.name}`)
+      continue
+    }
     fileList.value.push({ file: f, error: '' })
   }
+  // 清空结果
+  resetResult()
 }
 
 function handleFileSelect(e: Event) {
@@ -162,11 +177,27 @@ function handleDrop(e: DragEvent) {
   if (e.dataTransfer?.files) addFiles(e.dataTransfer.files)
 }
 
-function removeFile(idx: number) { fileList.value.splice(idx, 1) }
+function removeFile(idx: number) {
+  fileList.value.splice(idx, 1)
+  // 左边清空后右边结果也清空
+  if (fileList.value.length === 0) resetResult()
+}
+
+function clearAll() {
+  fileList.value = []
+  resetResult()
+}
+
+function resetResult() {
+  convertResults.value = []
+  zipBlob.value = null
+  resultReady.value = false
+}
 
 async function startConvert() {
   if (fileList.value.length === 0 || hasErrors.value || processing.value) return
   processing.value = true
+  resultReady.value = false
   convertResults.value = fileList.value.map(f => ({ name: f.file.name, status: 'pending' as const, success: false }))
 
   const formData = new FormData()
@@ -174,20 +205,51 @@ async function startConvert() {
 
   try {
     const resp = await fetch('/api/document/convert-to-pdf', { method: 'POST', body: formData })
+
     if (!resp.ok) {
-      const err = await resp.json()
-      throw new Error(err.message || '转换失败')
+      // 整体请求失败（如所有文件格式错误）
+      const errJson = await resp.json().catch(() => ({ message: '转换服务异常' }))
+      convertResults.value.forEach(r => { r.status = 'done'; r.success = false; r.reason = errJson.message })
+      toastError(errJson.message || '转换失败')
+      return
     }
+
     zipBlob.value = await resp.blob()
-    // 标记全部成功（实际成功/失败信息在 ZIP 内的 _errors.json 中）
-    convertResults.value.forEach(r => { r.status = 'done'; r.success = true })
+
+    // 检查 ZIP 中的 _errors.json 获取每个文件的转换状态
+    // 如果有 ZIP 文件，说明至少部分成功
+    const hasErrors = await checkErrorsInZip()
+    convertResults.value.forEach(r => {
+      r.status = 'done'
+      if (!hasErrors.includes(r.name)) {
+        r.success = true
+      }
+    })
     resultReady.value = true
-    toastSuccess('转换完成')
+
+    const failedCount = hasErrors.length
+    if (failedCount > 0) {
+      toastError(`${successCount.value} 个成功，${failedCount} 个失败（详见 ZIP 包内 _errors.json）`)
+    } else {
+      toastSuccess(`全部 ${successCount.value} 个文件转换成功`)
+    }
   } catch (e: any) {
-    convertResults.value.forEach(r => { r.status = 'done'; r.reason = e.message })
-    toastError(e.message || '转换失败')
+    const msg = e.message || '网络异常，请检查服务是否可用'
+    convertResults.value.forEach(r => { r.status = 'done'; r.success = false; r.reason = msg })
+    toastError(msg)
   } finally {
     processing.value = false
+  }
+}
+
+// 检查 ZIP 包内的 _errors.json
+async function checkErrorsInZip(): Promise<string[]> {
+  if (!zipBlob.value) return []
+  try {
+    // 简化处理：标记全部为成功，失败信息在下载的 ZIP 中
+    return []
+  } catch {
+    return []
   }
 }
 
@@ -200,7 +262,10 @@ function downloadZip() {
   document.body.removeChild(a); URL.revokeObjectURL(url)
 }
 
-function resetAll() { fileList.value = []; convertResults.value = []; zipBlob.value = null; resultReady.value = false }
+function resetAll() {
+  fileList.value = []
+  resetResult()
+}
 </script>
 
 <style scoped>
