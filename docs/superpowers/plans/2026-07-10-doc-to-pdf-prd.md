@@ -78,7 +78,7 @@ soffice --headless --norestore --convert-to pdf --outdir <tmpdir> <input>
 
 ### Seams
 
-主接缝：API 层 `POST /api/convert/doc-to-pdf` — MockMvc multipart 测试
+主接缝：API 层 `POST /api/document/convert-to-pdf` — MockMvc multipart 测试
 
 ### 测试策略
 

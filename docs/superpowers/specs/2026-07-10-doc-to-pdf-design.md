@@ -23,7 +23,7 @@
 ## 3. API 设计
 
 ```
-POST /api/convert/doc-to-pdf
+POST /api/document/convert-to-pdf
   Content-Type: multipart/form-data
   Params:
     files:  MultipartFile[]  (必填，最多 5 个，每个 ≤50MB)
@@ -138,14 +138,16 @@ soffice --headless --norestore --convert-to pdf --outdir /tmp/output input.docx
 
 ```
 backend/src/main/java/com/toolbox/
-  ├── controller/convert/ConvertController.java  # 新增 doc-to-pdf 方法
-  ├── service/convert/ConvertService.java        # 新增 docToPdf 方法
-  ├── service/convert/impl/ConvertServiceImpl.java # LibreOffice 调用实现
-  └── exception/ErrorCodeEnum.java               # 新增 DOC_4001~DOC_5002
+  ├── controller/document/DocumentController.java     # 新增 POST /api/document/convert-to-pdf
+  ├── service/document/DocumentService.java           # 接口
+  ├── service/document/impl/DocumentServiceImpl.java  # LibreOffice 调用实现
+  └── exception/ErrorCodeEnum.java                    # 新增 DOC_4001~DOC_5002
 
 frontend/src/tools/doc-to-pdf/
   └── index.vue
 ```
+
+> 注意：文档转换使用独立的 `controller/document/` 和 `service/document/` 包，与 PDF 切分的 `controller/pdf/` 和 `service/pdf/` 并列，职责隔离。
 
 ## 11. 约束 & 非目标
 
