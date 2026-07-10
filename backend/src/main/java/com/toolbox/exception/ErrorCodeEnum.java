@@ -31,7 +31,19 @@ public enum ErrorCodeEnum {
     /** 每 N 页参数无效 */
     PDF_EVERY_N_INVALID(400, "每页拆分数量必须为正整数"),
     /** PDF 处理异常 */
-    PDF_PROCESS_ERROR(500, "PDF 处理失败，请稍后重试");
+    PDF_PROCESS_ERROR(500, "PDF 处理失败，请稍后重试"),
+    /** 文档格式不支持 */
+    DOC_FORMAT_INVALID(400, "仅支持 .doc / .docx / .wps 格式"),
+    /** 文档文件为空 */
+    DOC_FILE_EMPTY(400, "请选择有效的文档文件"),
+    /** 超过最大文件数 */
+    DOC_TOO_MANY_FILES(400, "单次最多上传 5 个文件"),
+    /** 文档文件超过大小限制 */
+    DOC_FILE_TOO_LARGE(400, "单个文件不能超过 50MB"),
+    /** 文档转换失败 */
+    DOC_CONVERT_ERROR(500, "文档转换失败"),
+    /** 转换服务不可用 */
+    DOC_SERVICE_UNAVAILABLE(500, "转换服务不可用，请联系管理员");
 
     /** 错误码 */
     private final Integer code;
