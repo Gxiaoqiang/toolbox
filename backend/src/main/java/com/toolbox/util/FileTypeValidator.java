@@ -34,4 +34,23 @@ public final class FileTypeValidator {
         String ext = filename.substring(dotIndex + 1).toLowerCase();
         return ALLOWED_EXTENSIONS.contains(ext);
     }
+
+    /**
+     * 校验文件扩展名是否匹配指定类型
+     *
+     * @param filename  文件名
+     * @param extension 期望的扩展名（不含点号）
+     * @return 是否匹配
+     */
+    public static boolean hasExtension(String filename, String extension) {
+        if (filename == null || filename.isEmpty() || extension == null) {
+            return false;
+        }
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return false;
+        }
+        String ext = filename.substring(dotIndex + 1).toLowerCase();
+        return ext.equals(extension.toLowerCase());
+    }
 }

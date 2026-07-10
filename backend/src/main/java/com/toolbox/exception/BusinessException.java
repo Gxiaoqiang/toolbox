@@ -23,5 +23,16 @@ public class BusinessException extends RuntimeException {
         this.code = errorCode.getCode();
     }
 
+    /**
+     * 使用错误码 + 附加消息构造
+     *
+     * @param errorCode 错误码枚举
+     * @param extra     附加到默认描述之后的消息
+     */
+    public BusinessException(ErrorCodeEnum errorCode, String extra) {
+        super(errorCode.getDesc() + extra);
+        this.code = errorCode.getCode();
+    }
+
     public Integer getCode() { return code; }
 }

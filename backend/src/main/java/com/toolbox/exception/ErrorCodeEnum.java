@@ -15,7 +15,23 @@ public enum ErrorCodeEnum {
     /** 文件格式不支持 */
     FILE_FORMAT_UNSUPPORTED(400, "文件格式不支持"),
     /** 文件转换失败 */
-    CONVERT_ERROR(500, "文件转换失败");
+    CONVERT_ERROR(500, "文件转换失败"),
+    /** PDF 文件格式不正确 */
+    PDF_FORMAT_INVALID(400, "请上传 PDF 格式的文件"),
+    /** PDF 文件为空 */
+    PDF_FILE_EMPTY(400, "请选择有效的 PDF 文件"),
+    /** PDF 已加密 */
+    PDF_ENCRYPTED(400, "暂不支持加密的 PDF 文件"),
+    /** 页码超出范围 */
+    PDF_PAGE_OUT_OF_RANGE(400, "页码范围超出文档总页数"),
+    /** 页码格式错误 */
+    PDF_PAGE_FORMAT_ERROR(400, "页码范围格式不正确，请输入如 \"1,3,5-8\""),
+    /** 页码重复或重叠 */
+    PDF_PAGE_OVERLAP(400, "页码范围存在重复或重叠"),
+    /** 每 N 页参数无效 */
+    PDF_EVERY_N_INVALID(400, "每页拆分数量必须为正整数"),
+    /** PDF 处理异常 */
+    PDF_PROCESS_ERROR(500, "PDF 处理失败，请稍后重试");
 
     /** 错误码 */
     private final Integer code;
