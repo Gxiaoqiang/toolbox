@@ -175,7 +175,7 @@ const meta: ToolMeta = {
   name: 'PDF 切分',
   description: 'PDF 逐页拆分、按页码范围、每 N 页拆分',
   icon: 'file-text',
-  category: 'develop',
+  category: 'file',
   requiresBackend: true,
 }
 defineExpose({ meta })

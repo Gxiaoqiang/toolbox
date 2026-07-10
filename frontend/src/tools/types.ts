@@ -1,5 +1,5 @@
 /** 工具分类 */
-export type ToolCategory = 'document' | 'develop' | 'data'
+export type ToolCategory = 'file' | 'develop' | 'data'
 
 /** 工具元信息 — 每个工具组件的导出规范 */
 export interface ToolMeta {
@@ -27,7 +27,7 @@ export interface ToolDefinition {
 
 /** 分类显示配置 */
 export const CATEGORY_CONFIG: Record<ToolCategory, { label: string; emoji: string }> = {
-  document: { label: '文档工具', emoji: '📄' },
+  file: { label: '文件处理', emoji: '📄' },
   develop: { label: '开发辅助', emoji: '💻' },
   data: { label: '数据处理', emoji: '📊' },
 }

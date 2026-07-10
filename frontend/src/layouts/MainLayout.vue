@@ -50,7 +50,7 @@
                 :style="[activeToolId === tool.meta.id ? {} : { color: 'var(--text-secondary)' }, group.name ? { marginLeft: '12px' } : {}]"
               >
                 <span v-if="activeToolId === tool.meta.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"></span>
-                <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="{ 'bg-blue-400': tool.meta.category === 'document', 'bg-violet-400': tool.meta.category === 'develop', 'bg-emerald-400': tool.meta.category === 'data' }"></span>
+                <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="{ 'bg-blue-400': tool.meta.category === 'file', 'bg-violet-400': tool.meta.category === 'develop', 'bg-emerald-400': tool.meta.category === 'data' }"></span>
                 <span class="truncate">{{ tool.meta.name }}</span>
                 <span v-if="tool.meta.requiresBackend" class="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="需要后端支持"></span>
               </router-link>
@@ -73,7 +73,7 @@
         style="background: var(--bg-sidebar); border-color: var(--sidebar-border)">
         <button v-if="sidebarCollapsed" @click="sidebarCollapsed = false" class="w-6 h-6 rounded flex items-center justify-center hover:bg-slate-100 text-xs" style="color: var(--text-muted)" title="展开侧边栏">☰</button>
         <template v-if="currentTool">
-          <div class="w-7 h-7 rounded-md flex items-center justify-center" :class="{ 'bg-blue-100': currentTool.meta.category === 'document', 'bg-violet-100': currentTool.meta.category === 'develop', 'bg-emerald-100': currentTool.meta.category === 'data' }">
+          <div class="w-7 h-7 rounded-md flex items-center justify-center" :class="{ 'bg-blue-100': currentTool.meta.category === 'file', 'bg-violet-100': currentTool.meta.category === 'develop', 'bg-emerald-100': currentTool.meta.category === 'data' }">
             <span class="text-sm">{{ CATEGORY_CONFIG[currentTool.meta.category].emoji }}</span>
           </div>
           <div>
@@ -173,7 +173,7 @@ onMounted(() => document.addEventListener('click', handleClickOutside))
 onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 const activeToolId = computed(() => { const id = route.params.toolId; return typeof id === 'string' ? id : id[0] })
-const expandedCategories = ref(new Set<ToolCategory>(['document', 'develop', 'data']))
+const expandedCategories = ref(new Set<ToolCategory>(['file', 'develop', 'data']))
 function toggleCategory(key: ToolCategory) {
   if (expandedCategories.value.has(key)) expandedCategories.value.delete(key)
   else expandedCategories.value.add(key)
@@ -185,7 +185,7 @@ const currentTool = computed(() => tools.value.find((t) => t.meta.id === activeT
 const totalToolCount = computed(() => tools.value.length)
 interface CategoryWithGroups { key: ToolCategory; groups: { name: string | null; tools: typeof tools.value }[] }
 const categories = computed<CategoryWithGroups[]>(() => {
-  const catOrder: ToolCategory[] = ['document', 'develop', 'data']
+  const catOrder: ToolCategory[] = ['file', 'develop', 'data']
   return catOrder.map((key) => {
     const catTools = getToolsByCategory(key)
     const groupMap = new Map<string | null, typeof catTools>()
