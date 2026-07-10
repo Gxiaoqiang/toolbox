@@ -1,8 +1,8 @@
-package com.toolbox.controller.convert;
+package com.toolbox.controller.markdown;
 
 import com.toolbox.model.common.R;
 import com.toolbox.model.dto.ConvertResultDTO;
-import com.toolbox.service.convert.ConvertService;
+import com.toolbox.service.markdown.MarkdownService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
@@ -23,14 +23,14 @@ import java.nio.charset.StandardCharsets;
  * @since 2026-07-01
  */
 @RestController
-@RequestMapping("/api/convert")
-public class ConvertController {
+@RequestMapping("/api/markdown")
+public class MarkdownController {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConvertController.class);
-    private final ConvertService convertService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(MarkdownController.class);
+    private final MarkdownService markdownService;
 
-    public ConvertController(ConvertService convertService) {
-        this.convertService = convertService;
+    public MarkdownController(MarkdownService markdownService) {
+        this.markdownService = markdownService;
     }
 
     /**
@@ -40,7 +40,7 @@ public class ConvertController {
     public ResponseEntity<Resource> convertMdToDocx(@RequestParam("content") String markdownContent,
                                                      @RequestParam(value = "filename", defaultValue = "output") String filename) {
         LOGGER.info("Markdown 转 DOCX 请求, 内容长度: {}", markdownContent.length());
-        byte[] docxBytes = convertService.convertMarkdownToDocx(markdownContent);
+        byte[] docxBytes = markdownService.convertMarkdownToDocx(markdownContent);
         ByteArrayResource resource = new ByteArrayResource(docxBytes);
         String encodedFilename = URLEncoder.encode(filename + ".docx", StandardCharsets.UTF_8)
                 .replace("+", "%20");

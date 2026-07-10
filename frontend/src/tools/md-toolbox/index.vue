@@ -284,7 +284,7 @@ async function convertToDocx() {
   converting.value = true
   try {
     const fd = new FormData(); fd.append('content', input.value); fd.append('filename', 'converted')
-    const resp = await fetch('/api/convert/md-to-docx', { method: 'POST', body: fd })
+    const resp = await fetch('/api/markdown/md-to-docx', { method: 'POST', body: fd })
     if (!resp.ok) throw new Error('HTTP ' + resp.status)
     const blob = await resp.blob(); const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url; a.download = 'output.docx'

@@ -1,8 +1,8 @@
-package com.toolbox.service.convert.impl;
+package com.toolbox.service.markdown.impl;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
-import com.toolbox.service.convert.ConvertService;
+import com.toolbox.service.markdown.MarkdownService;
 import com.vladsch.flexmark.ext.gfm.strikethrough.StrikethroughExtension;
 import com.vladsch.flexmark.ext.gfm.tasklist.TaskListExtension;
 import com.vladsch.flexmark.ext.tables.TablesExtension;
@@ -32,9 +32,9 @@ import java.util.Arrays;
  * @since 2026-07-01
  */
 @Service
-public class ConvertServiceImpl implements ConvertService {
+public class MarkdownServiceImpl implements MarkdownService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConvertServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MarkdownServiceImpl.class);
 
     private static final String HTML_TEMPLATE = "<!DOCTYPE html>"
             + "<html xmlns=\"http://www.w3.org/1999/xhtml\">"
@@ -69,7 +69,7 @@ public class ConvertServiceImpl implements ConvertService {
     private final Parser parser;
     private final HtmlRenderer renderer;
 
-    public ConvertServiceImpl() {
+    public MarkdownServiceImpl() {
         MutableDataSet options = new MutableDataSet();
         options.set(Parser.EXTENSIONS, Arrays.asList(
                 TablesExtension.create(),

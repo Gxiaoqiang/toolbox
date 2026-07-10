@@ -1,12 +1,12 @@
-package com.toolbox.service.convert;
+package com.toolbox.service.markdown;
 
 /**
- * 文件转换服务接口
+ * Markdown 转换服务接口
  *
  * @author toolbox
  * @since 2026-07-01
  */
-public interface ConvertService {
+public interface MarkdownService {
 
     /**
      * 将 Markdown 文本转换为 DOCX 字节数组
