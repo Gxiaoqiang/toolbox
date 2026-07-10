@@ -25,7 +25,7 @@ function loadTheme(): Theme {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored && Object.keys(THEME_LABELS).includes(stored)) return stored as Theme
   } catch { /* localStorage 不可用 */ }
-  return 'default'
+  return 'green'
 }
 
 function applyTheme(theme: Theme): void {
