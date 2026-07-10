@@ -45,9 +45,9 @@
               </div>
               <router-link
                 v-for="tool in group.tools" :key="tool.meta.id" :to="`/tools/${tool.meta.id}`"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
+                class="flex items-center gap-2.5 pl-5 pr-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
                 :class="activeToolId === tool.meta.id ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60' : 'hover:bg-slate-50 hover:text-slate-800'"
-                :style="[activeToolId === tool.meta.id ? {} : { color: 'var(--text-secondary)' }, group.name ? { marginLeft: '12px' } : {}]"
+                :style="activeToolId === tool.meta.id ? {} : { color: 'var(--text-secondary)' }"
               >
                 <span v-if="activeToolId === tool.meta.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"></span>
                 <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="{ 'bg-blue-400': tool.meta.category === 'file', 'bg-violet-400': tool.meta.category === 'develop', 'bg-emerald-400': tool.meta.category === 'data' }"></span>

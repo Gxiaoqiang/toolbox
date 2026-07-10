@@ -96,7 +96,7 @@ import type { ToolMeta } from '@/tools/types'
 export const meta: ToolMeta = {
   id: 'md-toolbox', name: 'Markdown 工具箱',
   description: 'Markdown 实时预览、导出 HTML/DOCX',
-  icon: '', category: 'file', group: 'Markdown', requiresBackend: true,
+  icon: '', category: 'file', requiresBackend: true,
 }
 </script>
 
