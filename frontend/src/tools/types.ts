@@ -27,7 +27,7 @@ export interface ToolDefinition {
 
 /** 分类显示配置 */
 export const CATEGORY_CONFIG: Record<ToolCategory, { label: string; emoji: string }> = {
-  file: { label: '文件处理', emoji: '📄' },
+  file: { label: '文件工具', emoji: '📄' },
   develop: { label: '开发辅助', emoji: '💻' },
   data: { label: '数据处理', emoji: '📊' },
 }
