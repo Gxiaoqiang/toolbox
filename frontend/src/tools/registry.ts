@@ -32,7 +32,8 @@ export async function loadTools(): Promise<ToolDefinition[]> {
       continue
     }
 
-    const meta: ToolMeta = component.meta || {
+    // 优先读取模块级 export meta，其次读取 component.meta，最后用默认值
+    const meta: ToolMeta = mod.meta || component.meta || {
       id: toolId,
       name: toolId,
       description: '',

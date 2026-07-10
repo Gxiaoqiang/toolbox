@@ -164,13 +164,9 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue'
+<script lang="ts">
 import type { ToolMeta } from '@/tools/types'
-import { useToast } from '@/composables/useToast'
-
-defineOptions({ inheritAttrs: false })
-const meta: ToolMeta = {
+export const meta: ToolMeta = {
   id: 'pdf-splitter',
   name: 'PDF 切分',
   description: 'PDF 逐页拆分、按页码范围、每 N 页拆分',
@@ -178,6 +174,13 @@ const meta: ToolMeta = {
   category: 'file',
   requiresBackend: true,
 }
+</script>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useToast } from '@/composables/useToast'
+
+defineOptions({ inheritAttrs: false })
 defineExpose({ meta })
 
 const { success, error: toastError } = useToast()

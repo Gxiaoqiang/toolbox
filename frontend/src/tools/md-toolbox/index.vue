@@ -91,19 +91,22 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue'
-import { marked } from 'marked'
+<script lang="ts">
 import type { ToolMeta } from '@/tools/types'
-import { useClipboard } from '@/composables/useClipboard'
-import { useToast } from '@/composables/useToast'
-
-defineOptions({ inheritAttrs: false })
-const meta: ToolMeta = {
+export const meta: ToolMeta = {
   id: 'md-toolbox', name: 'Markdown 工具箱',
   description: 'Markdown 实时预览、导出 HTML/DOCX',
   icon: '', category: 'file', group: 'Markdown', requiresBackend: true,
 }
+</script>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { marked } from 'marked'
+import { useClipboard } from '@/composables/useClipboard'
+import { useToast } from '@/composables/useToast'
+
+defineOptions({ inheritAttrs: false })
 defineExpose({ meta })
 
 marked.setOptions({ gfm: true, breaks: false })
