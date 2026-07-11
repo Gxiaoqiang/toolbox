@@ -1,18 +1,20 @@
 # 🧰 Toolbox — 开发/办公工具箱
 
-> 一个可扩展的 Web 工具箱，集成 JSON 处理、Markdown 转换、编解码、哈希计算等常用工具。
+> 一个可扩展的 Web 工具箱，集成 JSON 处理、Markdown 转换、PDF 切分、文档转 PDF、编解码、哈希计算等常用工具。
 
 ## 在线体验
 
 启动后访问 `http://localhost:8899`
 
-## 功能清单（11 个工具）
+## 功能清单（13 个工具）
 
-### 📄 文档工具
+### 📄 文件工具
 
-| 工具 | 说明 |
-|------|------|
-| **Markdown 工具箱** | Markdown 实时预览（GFM）、导出 HTML、导出 DOCX |
+| 工具 | 说明 | 后端 |
+|------|------|------|
+| **Markdown 工具箱** | Markdown 实时预览（GFM）、快捷插入、语法速查、导出 HTML、导出 DOCX | ✓ |
+| **PDF 切分** | 逐页拆分 / 按页码范围（如 1,3,5-8）/ 每 N 页拆分，支持保留元数据，ZIP 下载 | ✓ |
+| **文档转 PDF** | .doc / .docx / .wps → PDF 批量转换（最多 5 个），ZIP 下载 | ✓ |
 
 ### 💻 开发辅助
 
@@ -38,20 +40,21 @@
 
 | 层 | 技术 |
 |---|------|
-| 前端 | Vue 3 (Composition API) + TypeScript + Vite + TailwindCSS |
+| 前端 | Vue 3 (Composition API) + TypeScript + Vite + TailwindCSS v4 |
 | 后端 | Spring Boot 3.3 + JDK 17 + Maven |
-| Markdown | marked (GFM) / flexmark (Java) |
-| DOCX | docx4j (AltChunk 嵌入 HTML) |
-| MD5 | spark-md5 |
-| 数据库 | MySQL 8.0（预留，当前无需） |
+| Markdown | marked (GFM 前端渲染) / flexmark + docx4j (服务端 DOCX 导出) |
+| PDF 处理 | Apache PDFBox 3.0 |
+| 文档转换 | LibreOffice headless (soffice CLI) |
+| 其他 | js-yaml, spark-md5 |
 
-## 快速开始
-
-### 环境要求
+## 环境要求
 
 - JDK 17+
 - Maven 3.9+
 - Node.js 20+（仅开发构建时需要）
+- LibreOffice（仅文档转 PDF 功能需要，非必需）
+
+## 快速开始
 
 ### 开发模式
 
@@ -107,6 +110,8 @@ toolbox/
 │       │   ├── types.ts       # ToolMeta 接口定义
 │       │   ├── registry.ts    # 自动扫描 & 注册中心
 │       │   ├── md-toolbox/    # Markdown 工具箱
+│       │   ├── pdf-splitter/  # PDF 切分
+│       │   ├── doc-to-pdf/    # 文档转 PDF
 │       │   ├── json-formatter/# JSON 工具箱
 │       │   └── ...            # 其他工具
 │       ├── layouts/           # 布局组件
@@ -115,13 +120,15 @@ toolbox/
 ├── backend/                   # Spring Boot 后端
 │   └── src/main/java/com/toolbox/
 │       ├── controller/        # 接口层
+│       │   ├── markdown/      # Markdown 转换接口
+│       │   ├── pdf/           # PDF 切分接口
+│       │   └── document/      # 文档转 PDF 接口
 │       ├── service/           # 业务层
 │       ├── model/             # 数据模型（R 统一响应体）
 │       ├── exception/         # 全局异常处理
+│       ├── util/              # 工具类
 │       └── config/            # Web 配置
-└── docs/superpowers/          # 设计文档
-    ├── specs/                 # 需求规范
-    └── plans/                 # 实现计划
+└── Dockerfile
 ```
 
 ## 扩展新工具
@@ -132,13 +139,13 @@ toolbox/
 2. 创建 `index.vue`，导出 `meta` 对象：
 
 ```typescript
+// 注意：meta 必须使用 <script lang="ts"> 独立块导出（模块级命名导出）
 const meta: ToolMeta = {
   id: 'my-tool',
   name: '我的工具',
   description: '工具描述',
-  category: 'develop',          // document | develop | data
-  group: '可选分组',             // 同一分类下聚合展示
-  requiresBackend: false,       // 是否需要后端
+  category: 'file',               // file | develop | data
+  requiresBackend: false,         // 是否需要后端支持
 }
 ```
 
@@ -148,7 +155,31 @@ const meta: ToolMeta = {
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/convert/md-to-docx` | Markdown 转 DOCX 文件下载 |
+| POST | `/api/markdown/md-to-docx` | Markdown 转 DOCX 文件下载 |
+| POST | `/api/pdf/split` | PDF 切分（逐页/范围/每N页），ZIP 下载 |
+| POST | `/api/document/convert-to-pdf` | 文档转 PDF（批量最多 5 个），ZIP 下载 |
+
+### 统一响应格式
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null
+}
+```
+
+## 主题系统
+
+5 套主题通过 CSS 自定义属性切换，localStorage 持久化：
+
+| 主题 | 说明 |
+|------|------|
+| 护眼绿（默认） | 柔和绿色背景，舒适护眼 |
+| 默认白 | 经典白色背景 |
+| 暖色奶油 | 温暖奶油色调 |
+| 深色暗夜 | 深色暗夜模式 |
+| 浅灰柔白 | 浅灰柔白配色 |
 
 ## 编码规范
 
