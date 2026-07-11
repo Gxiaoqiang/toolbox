@@ -79,41 +79,56 @@ export const meta: ToolMeta = {
       </button>
     </div>
 
-    <!-- 右侧：结果区 — 无文件时空白，有结果时展示 -->
+    <!-- 右侧：结果区 — 虚线框包裹 -->
     <div class="flex-1 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">转换结果</label>
 
-      <div v-if="fileList.length === 0 && convertResults.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-sm" style="color: var(--text-muted)">请先选择文档文件</p>
-      </div>
-
-      <div v-else-if="convertResults.length === 0 && !processing" class="flex-1 flex items-center justify-center">
-        <p class="text-sm" style="color: var(--text-muted)">点击"转换"开始</p>
-      </div>
-
-      <div v-else-if="processing && convertResults.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-sm" style="color: var(--text-muted)">正在转换中...</p>
-      </div>
-
-      <div v-else class="flex-1 overflow-y-auto space-y-1.5">
-        <div
-          v-for="(r, idx) in convertResults" :key="idx"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
-          :style="{ borderColor: r.success && r.status === 'done' ? '#34d399' : r.status === 'done' ? '#f87171' : 'var(--border-color)', background: 'var(--bg-card)' }"
-        >
-          <span v-if="r.status === 'pending'" class="text-xs">⏳</span>
-          <span v-else-if="r.success" class="text-xs">✅</span>
-          <span v-else class="text-xs">❌</span>
-          <span class="flex-1 truncate" style="color: var(--text-primary)">{{ r.name }}</span>
-          <span v-if="!r.success && r.reason" class="text-xs text-red-400 truncate max-w-[140px]" :title="r.reason">{{ r.reason }}</span>
+      <div
+        class="flex-1 border-2 border-dashed rounded-lg flex flex-col items-center justify-center overflow-hidden"
+        style="border-color: var(--border-color); background: var(--bg-card)"
+      >
+        <!-- 空态 -->
+        <div v-if="fileList.length === 0 && convertResults.length === 0" class="text-center">
+          <span class="text-3xl">📄</span>
+          <p class="text-sm mt-2" style="color: var(--text-muted)">请先选择文档文件</p>
         </div>
 
-        <div v-if="resultReady" class="pt-2">
-          <button @click="downloadZip"
-            class="w-full py-2 rounded-lg text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
-            📥 下载 ZIP（{{ successCount }}/{{ convertResults.length }} 成功）
-          </button>
-          <button @click="resetAll" class="block mx-auto mt-2 text-xs underline" style="color: var(--text-muted)">重新转换</button>
+        <!-- 就绪 -->
+        <div v-else-if="convertResults.length === 0 && !processing" class="text-center">
+          <span class="text-3xl">📑</span>
+          <p class="text-sm mt-2" style="color: var(--text-muted)">点击"转换"开始</p>
+        </div>
+
+        <!-- 转换中 -->
+        <div v-else-if="processing && convertResults.length === 0" class="text-center">
+          <svg class="animate-spin mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity="0.15" style="color: var(--accent-color)"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color: var(--accent-color)"/>
+          </svg>
+          <p class="text-sm" style="color: var(--text-muted)">正在转换中...</p>
+        </div>
+
+        <!-- 有结果 -->
+        <div v-else class="w-full flex-1 overflow-y-auto p-3 space-y-1.5">
+          <div
+            v-for="(r, idx) in convertResults" :key="idx"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
+            :style="{ borderColor: r.success && r.status === 'done' ? '#34d399' : r.status === 'done' ? '#f87171' : 'var(--border-color)', background: 'var(--bg-main)' }"
+          >
+            <span v-if="r.status === 'pending'" class="text-xs">⏳</span>
+            <span v-else-if="r.success" class="text-xs">✅</span>
+            <span v-else class="text-xs">❌</span>
+            <span class="flex-1 truncate" style="color: var(--text-primary)">{{ r.name }}</span>
+            <span v-if="!r.success && r.reason" class="text-xs text-red-400 truncate max-w-[140px]" :title="r.reason">{{ r.reason }}</span>
+          </div>
+
+          <div v-if="resultReady" class="pt-2">
+            <button @click="downloadZip"
+              class="w-full py-2 rounded-lg text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
+              📥 下载 ZIP（{{ successCount }}/{{ convertResults.length }} 成功）
+            </button>
+            <button @click="resetAll" class="block mx-auto mt-2 text-xs underline" style="color: var(--text-muted)">重新转换</button>
+          </div>
         </div>
       </div>
     </div>

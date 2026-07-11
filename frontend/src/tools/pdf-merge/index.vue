@@ -114,38 +114,35 @@ export const meta: ToolMeta = {
     <div class="flex-1 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">合并结果</label>
 
-      <!-- 状态 1: 空态 -->
-      <div v-if="fileList.length === 0 && !mergeResult" class="flex-1 flex items-center justify-center">
-        <div class="text-center">
+      <div
+        class="flex-1 border-2 border-dashed rounded-lg flex flex-col items-center justify-center"
+        style="border-color: var(--border-color); background: var(--bg-card)"
+      >
+        <!-- 状态 1: 空态 -->
+        <div v-if="fileList.length === 0 && !mergeResult" class="text-center">
           <span class="text-3xl">📄</span>
           <p class="text-sm mt-2" style="color: var(--text-muted)">请先选择 PDF 文件</p>
         </div>
-      </div>
 
-      <!-- 状态 2: 就绪 -->
-      <div v-else-if="fileList.length > 0 && !processing && !mergeResult" class="flex-1 flex items-center justify-center">
-        <div class="text-center">
+        <!-- 状态 2: 就绪 -->
+        <div v-else-if="fileList.length > 0 && !processing && !mergeResult" class="text-center">
           <span class="text-3xl">📑</span>
           <p class="text-sm mt-2" style="color: var(--text-muted)">
             已选择 {{ fileList.length }} 个文件，点击"合并"开始
           </p>
         </div>
-      </div>
 
-      <!-- 状态 3: 合并中 -->
-      <div v-else-if="processing" class="flex-1 flex items-center justify-center">
-        <div class="text-center">
+        <!-- 状态 3: 合并中 -->
+        <div v-else-if="processing" class="text-center">
           <svg class="animate-spin mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity="0.15" style="color: var(--accent-color)"/>
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color: var(--accent-color)"/>
           </svg>
           <p class="text-sm" style="color: var(--text-secondary)">正在合并 {{ fileList.length }} 个 PDF 文件...</p>
         </div>
-      </div>
 
-      <!-- 状态 4: 完成 -->
-      <div v-else-if="mergeResult" class="flex-1 flex flex-col items-center justify-center">
-        <div class="text-center">
+        <!-- 状态 4: 完成 -->
+        <div v-else-if="mergeResult" class="text-center">
           <span class="text-4xl">✅</span>
           <p class="text-sm font-semibold mt-2" style="color: var(--text-primary)">合并完成</p>
           <p class="text-xs mt-1" style="color: var(--text-muted)">
