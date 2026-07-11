@@ -17,6 +17,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * PDF 处理接口
@@ -83,6 +85,66 @@ public class PdfController {
             throw e;
         } catch (Exception e) {
             LOGGER.error("PDF 切分异常: file={}", file.getOriginalFilename(), e);
+            throw new BusinessException(ErrorCodeEnum.PDF_PROCESS_ERROR);
+        }
+    }
+
+    /**
+     * PDF 合并：将多个 PDF 文件按顺序合并为一个 PDF
+     */
+    @PostMapping("/merge")
+    public ResponseEntity<?> mergePdf(
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "preserveMeta", defaultValue = "false") boolean preserveMeta) {
+
+        if (files == null || files.isEmpty()) {
+            throw new BusinessException(ErrorCodeEnum.PDF_MERGE_TOO_FEW);
+        }
+        if (files.size() == 1) {
+            throw new BusinessException(ErrorCodeEnum.PDF_MERGE_TOO_FEW);
+        }
+        if (files.size() > 10) {
+            throw new BusinessException(ErrorCodeEnum.PDF_MERGE_TOO_MANY);
+        }
+
+        // 格式和大小校验
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                throw new BusinessException(ErrorCodeEnum.PDF_FILE_EMPTY);
+            }
+            String filename = file.getOriginalFilename();
+            if (filename == null || !FileTypeValidator.hasExtension(filename, "pdf")) {
+                throw new BusinessException(ErrorCodeEnum.PDF_FORMAT_INVALID);
+            }
+            if (file.getSize() > 5 * 1024 * 1024) {
+                throw new BusinessException(ErrorCodeEnum.DOC_FILE_TOO_LARGE);
+            }
+        }
+
+        LOGGER.info("PDF 合并请求: {} 个文件", files.size());
+
+        try {
+            List<byte[]> pdfBytesList = new ArrayList<>();
+            for (MultipartFile file : files) {
+                pdfBytesList.add(file.getBytes());
+            }
+
+            byte[] mergedBytes = pdfService.mergePdf(pdfBytesList, preserveMeta);
+
+            ByteArrayResource resource = new ByteArrayResource(mergedBytes);
+            String encodedFilename = URLEncoder.encode("merged.pdf", StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType("application/pdf"))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename*=UTF-8''" + encodedFilename)
+                    .body(resource);
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("PDF 合并异常", e);
             throw new BusinessException(ErrorCodeEnum.PDF_PROCESS_ERROR);
         }
     }

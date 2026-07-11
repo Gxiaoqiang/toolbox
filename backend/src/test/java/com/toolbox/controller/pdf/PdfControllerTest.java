@@ -119,4 +119,83 @@ class PdfControllerTest {
                         .param("mode", "by-page"))
                 .andExpect(status().isBadRequest());
     }
+
+    // ========== PDF 合并测试 ==========
+
+    @Test
+    @DisplayName("合并 — 正常返回 PDF")
+    void merge_returnsPdf() throws Exception {
+        when(pdfService.mergePdf(anyList(), eq(false)))
+                .thenReturn(new byte[]{1, 2, 3});
+
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "a.pdf", "application/pdf", "pdf-content-1".getBytes());
+        MockMultipartFile file2 = new MockMultipartFile(
+                "files", "b.pdf", "application/pdf", "pdf-content-2".getBytes());
+
+        mockMvc.perform(multipart("/api/pdf/merge")
+                        .file(file1)
+                        .file(file2))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename*=UTF-8''merged.pdf"))
+                .andExpect(content().contentType("application/pdf"));
+    }
+
+    @Test
+    @DisplayName("合并 — preserveMeta=true 正常")
+    void merge_preserveMeta_returnsPdf() throws Exception {
+        when(pdfService.mergePdf(anyList(), eq(true)))
+                .thenReturn(new byte[]{1, 2, 3});
+
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "a.pdf", "application/pdf", "pdf-1".getBytes());
+        MockMultipartFile file2 = new MockMultipartFile(
+                "files", "b.pdf", "application/pdf", "pdf-2".getBytes());
+
+        mockMvc.perform(multipart("/api/pdf/merge")
+                        .file(file1)
+                        .file(file2)
+                        .param("preserveMeta", "true"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("合并 — 仅 1 个文件返回错误")
+    void merge_singleFile_returnsError() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "files", "a.pdf", "application/pdf", "pdf-content".getBytes());
+
+        mockMvc.perform(multipart("/api/pdf/merge")
+                        .file(file))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("合并 — 非 PDF 文件返回错误")
+    void merge_nonPdf_returnsError() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "a.txt", "text/plain", "not-pdf".getBytes());
+        MockMultipartFile file2 = new MockMultipartFile(
+                "files", "b.pdf", "application/pdf", "pdf".getBytes());
+
+        mockMvc.perform(multipart("/api/pdf/merge")
+                        .file(file1)
+                        .file(file2))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("合并 — 空文件返回错误")
+    void merge_emptyFile_returnsError() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "a.pdf", "application/pdf", new byte[0]);
+        MockMultipartFile file2 = new MockMultipartFile(
+                "files", "b.pdf", "application/pdf", "pdf".getBytes());
+
+        mockMvc.perform(multipart("/api/pdf/merge")
+                        .file(file1)
+                        .file(file2))
+                .andExpect(status().isBadRequest());
+    }
 }

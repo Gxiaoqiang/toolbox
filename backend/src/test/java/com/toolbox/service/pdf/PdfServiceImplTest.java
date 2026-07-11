@@ -178,6 +178,131 @@ class PdfServiceImplTest {
         }
     }
 
+    // ========== PDF 合并测试 ==========
+
+    @Test
+    @DisplayName("合并: 2 个单页 PDF → 1 个 2 页 PDF")
+    void merge_twoSinglePage_returns2PagePdf() throws Exception {
+        byte[] pdf1 = createTestPdf(1);
+        byte[] pdf2 = createTestPdf(1);
+
+        byte[] merged = service.mergePdf(List.of(pdf1, pdf2), false);
+
+        try (PDDocument doc = Loader.loadPDF(merged)) {
+            assertEquals(2, doc.getNumberOfPages());
+        }
+    }
+
+    @Test
+    @DisplayName("合并: 多页 PDF 合并后总页数 = 各部分之和")
+    void merge_multiPagePdfs_totalPagesMatch() throws Exception {
+        byte[] pdf1 = createTestPdf(3);
+        byte[] pdf2 = createTestPdf(5);
+        byte[] pdf3 = createTestPdf(2);
+
+        byte[] merged = service.mergePdf(List.of(pdf1, pdf2, pdf3), false);
+
+        try (PDDocument doc = Loader.loadPDF(merged)) {
+            assertEquals(10, doc.getNumberOfPages());
+        }
+    }
+
+    @Test
+    @DisplayName("合并: 3 个 PDF 合并成功")
+    void merge_threePdfs_returnsValidPdf() throws Exception {
+        byte[] pdf1 = createTestPdf(2);
+        byte[] pdf2 = createTestPdf(3);
+        byte[] pdf3 = createTestPdf(1);
+
+        byte[] merged = service.mergePdf(List.of(pdf1, pdf2, pdf3), false);
+
+        assertNotNull(merged);
+        assertTrue(merged.length > 0);
+        try (PDDocument doc = Loader.loadPDF(merged)) {
+            assertEquals(6, doc.getNumberOfPages());
+        }
+    }
+
+    @Test
+    @DisplayName("合并: preserveMeta=true 保留第一个文件的元数据")
+    void merge_preserveMeta_copiesFirstDocMetadata() throws Exception {
+        ByteArrayOutputStream bos1 = new ByteArrayOutputStream();
+        try (PDDocument doc = new PDDocument()) {
+            doc.addPage(new PDPage());
+            doc.getDocumentInformation().setTitle("合并标题");
+            doc.getDocumentInformation().setAuthor("合并作者");
+            doc.save(bos1);
+        }
+        byte[] pdf2 = createTestPdf(1);
+
+        byte[] merged = service.mergePdf(List.of(bos1.toByteArray(), pdf2), true);
+
+        try (PDDocument doc = Loader.loadPDF(merged)) {
+            assertEquals("合并标题", doc.getDocumentInformation().getTitle());
+            assertEquals("合并作者", doc.getDocumentInformation().getAuthor());
+        }
+    }
+
+    @Test
+    @DisplayName("合并: 空列表抛 PDF_MERGE_TOO_FEW")
+    void merge_emptyList_throws() {
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                service.mergePdf(List.of(), false));
+        assertEquals(ErrorCodeEnum.PDF_MERGE_TOO_FEW.getCode(), ex.getCode());
+    }
+
+    @Test
+    @DisplayName("合并: 仅 1 个文件抛 PDF_MERGE_TOO_FEW")
+    void merge_singleFile_throws() throws Exception {
+        byte[] pdf = createTestPdf(2);
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                service.mergePdf(List.of(pdf), false));
+        assertEquals(ErrorCodeEnum.PDF_MERGE_TOO_FEW.getCode(), ex.getCode());
+    }
+
+    @Test
+    @DisplayName("合并: 超过 10 个文件抛 PDF_MERGE_TOO_MANY")
+    void merge_tooMany_throws() throws Exception {
+        byte[] pdf = createTestPdf(1);
+        List<byte[]> list = new ArrayList<>();
+        for (int i = 0; i < 11; i++) list.add(pdf);
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                service.mergePdf(list, false));
+        assertEquals(ErrorCodeEnum.PDF_MERGE_TOO_MANY.getCode(), ex.getCode());
+    }
+
+    @Test
+    @DisplayName("合并: 空字节数组抛 PDF_FILE_EMPTY")
+    void merge_emptyBytes_throws() throws Exception {
+        byte[] pdf = createTestPdf(1);
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                service.mergePdf(List.of(pdf, new byte[0]), false));
+        assertEquals(ErrorCodeEnum.PDF_FILE_EMPTY.getCode(), ex.getCode());
+    }
+
+    @Test
+    @DisplayName("合并: 加密 PDF 抛 PDF_ENCRYPTED")
+    void merge_encryptedPdf_throws() throws Exception {
+        byte[] normalPdf = createTestPdf(1);
+        // 创建加密 PDF（使用 owner password）
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (PDDocument doc = new PDDocument()) {
+            doc.addPage(new PDPage());
+            org.apache.pdfbox.pdmodel.encryption.AccessPermission ap =
+                    new org.apache.pdfbox.pdmodel.encryption.AccessPermission();
+            org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy spp =
+                    new org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy(
+                            "owner", "", ap);
+            spp.setEncryptionKeyLength(128);
+            doc.protect(spp);
+            doc.save(bos);
+        }
+
+        assertThrows(BusinessException.class, () ->
+                service.mergePdf(List.of(normalPdf, bos.toByteArray()), false));
+    }
+
     @Test
     @DisplayName("preserveMeta=true 时元数据传递")
     void preserveMeta_copiesDocumentInfo() throws Exception {

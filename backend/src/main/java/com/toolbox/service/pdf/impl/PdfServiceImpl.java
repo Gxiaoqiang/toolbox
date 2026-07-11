@@ -225,4 +225,63 @@ public class PdfServiceImpl implements PdfService {
             if (srcInfo.getProducer() != null) tgtInfo.setProducer(srcInfo.getProducer());
         }
     }
+
+    @Override
+    public byte[] mergePdf(List<byte[]> pdfBytesList, boolean preserveMeta) {
+        if (pdfBytesList == null || pdfBytesList.size() < 2) {
+            throw new BusinessException(ErrorCodeEnum.PDF_MERGE_TOO_FEW);
+        }
+        if (pdfBytesList.size() > 10) {
+            throw new BusinessException(ErrorCodeEnum.PDF_MERGE_TOO_MANY);
+        }
+
+        // 逐个加载 PDF 并检测加密，暂存文档对象
+        List<PDDocument> documents = new ArrayList<>();
+        try {
+            for (int i = 0; i < pdfBytesList.size(); i++) {
+                byte[] bytes = pdfBytesList.get(i);
+                if (bytes == null || bytes.length == 0) {
+                    throw new BusinessException(ErrorCodeEnum.PDF_FILE_EMPTY);
+                }
+                PDDocument doc = Loader.loadPDF(bytes);
+                if (doc.isEncrypted()) {
+                    throw new BusinessException(ErrorCodeEnum.PDF_ENCRYPTED);
+                }
+                documents.add(doc);
+            }
+
+            try (PDDocument mergedDoc = new PDDocument()) {
+                // 逐页复制
+                for (PDDocument doc : documents) {
+                    int pageCount = doc.getNumberOfPages();
+                    for (int p = 0; p < pageCount; p++) {
+                        PDPage copiedPage = new PDPage(doc.getPage(p).getCOSObject());
+                        mergedDoc.addPage(copiedPage);
+                    }
+                }
+
+                // 复制第一个文件的元数据
+                if (preserveMeta && !documents.isEmpty()) {
+                    copyMetadata(documents.get(0), mergedDoc);
+                }
+
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                mergedDoc.save(bos);
+                byte[] result = bos.toByteArray();
+                LOGGER.info("PDF 合并完成: {} 个文件, {} 页, 输出 {} bytes",
+                        pdfBytesList.size(), mergedDoc.getNumberOfPages(), result.length);
+                return result;
+            }
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (IOException e) {
+            LOGGER.error("PDF 合并异常", e);
+            throw new BusinessException(ErrorCodeEnum.PDF_PROCESS_ERROR);
+        } finally {
+            for (PDDocument doc : documents) {
+                try { doc.close(); } catch (IOException ignored) { }
+            }
+        }
+    }
 }

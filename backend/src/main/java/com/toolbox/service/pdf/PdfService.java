@@ -21,4 +21,13 @@ public interface PdfService {
      */
     byte[] splitPdf(byte[] pdfBytes, String originalFilename, String mode,
                     String pages, int everyN, boolean preserveMeta);
+
+    /**
+     * 合并多个 PDF 文件为一个
+     *
+     * @param pdfBytesList   PDF 文件字节数组列表（顺序即合并顺序）
+     * @param preserveMeta   是否保留第一个文件的元数据
+     * @return 合并后的 PDF 字节数组
+     */
+    byte[] mergePdf(java.util.List<byte[]> pdfBytesList, boolean preserveMeta);
 }

@@ -43,7 +43,11 @@ public enum ErrorCodeEnum {
     /** 文档转换失败 */
     DOC_CONVERT_ERROR(500, "文档转换失败"),
     /** 转换服务不可用 */
-    DOC_SERVICE_UNAVAILABLE(500, "转换服务不可用，请联系管理员");
+    DOC_SERVICE_UNAVAILABLE(500, "转换服务不可用，请联系管理员"),
+    /** PDF 合并文件数量不足 */
+    PDF_MERGE_TOO_FEW(400, "至少需要 2 个 PDF 文件才能合并"),
+    /** PDF 合并文件数量超限 */
+    PDF_MERGE_TOO_MANY(400, "单次最多合并 10 个文件");
 
     /** 错误码 */
     private final Integer code;
