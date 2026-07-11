@@ -13,29 +13,32 @@ export const meta: ToolMeta = {
     <div class="w-2/5 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">文档文件</label>
 
+      <!-- 虚线拖拽上传区 — 始终可见，选中文件后缩小 -->
       <div
-        v-if="fileList.length === 0"
-        class="flex-1 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors hover:border-indigo-400 hover:bg-indigo-50/30"
+        class="border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors hover:border-indigo-400 hover:bg-indigo-50/30 flex-shrink-0"
+        :class="fileList.length === 0 ? 'flex-1 gap-3' : 'h-24 gap-1'"
         style="border-color: var(--border-color); background: var(--bg-card)"
         @click="triggerFileInput"
         @dragover.prevent="dragOver = true"
         @dragleave.prevent="dragOver = false"
         @drop.prevent="handleDrop"
       >
-        <span class="text-4xl">📤</span>
-        <div class="text-center">
-          <p class="text-sm font-medium" style="color: var(--text-primary)">拖拽文档到此处</p>
-          <p class="text-xs mt-1" style="color: var(--text-muted)">或点击选择 · 最多 5 个 · 每个 ≤50MB</p>
-          <p class="text-xs mt-0.5" style="color: var(--text-muted)">支持 .doc .docx .wps</p>
-        </div>
+        <template v-if="fileList.length === 0">
+          <span class="text-4xl">📤</span>
+          <div class="text-center">
+            <p class="text-sm font-medium" style="color: var(--text-primary)">拖拽文档到此处</p>
+            <p class="text-xs mt-1" style="color: var(--text-muted)">或点击选择 · 最多 5 个 · 每个 ≤50MB</p>
+            <p class="text-xs mt-0.5" style="color: var(--text-muted)">支持 .doc .docx .wps</p>
+          </div>
+        </template>
+        <template v-else>
+          <span class="text-xl">📤</span>
+          <p class="text-xs" style="color: var(--text-muted)">拖拽或点击添加更多文件（{{ fileList.length }}/5）</p>
+        </template>
       </div>
 
-      <div v-else class="flex-1 flex flex-col min-h-0">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs" style="color: var(--text-muted)">已选 {{ fileList.length }}/5 个文件</span>
-          <button @click="triggerFileInput" :disabled="fileList.length >= 5"
-            class="text-xs underline" style="color: var(--accent-color)">+ 添加</button>
-        </div>
+      <!-- 文件列表 — 选中文件后显示 -->
+      <div v-if="fileList.length > 0" class="flex-1 flex flex-col min-h-0 mt-3">
         <div class="flex-1 overflow-y-auto space-y-1.5">
           <div
             v-for="(f, idx) in fileList" :key="idx"
@@ -48,7 +51,7 @@ export const meta: ToolMeta = {
             <button v-if="!processing" @click="removeFile(idx)" class="w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 hover:bg-red-50" style="color: var(--text-muted)">✕</button>
           </div>
         </div>
-        <button v-if="!processing && fileList.length > 0" @click="clearAll"
+        <button v-if="!processing" @click="clearAll"
           class="mt-2 text-xs underline self-start" style="color: var(--text-muted)">清空全部</button>
       </div>
 
@@ -56,18 +59,23 @@ export const meta: ToolMeta = {
     </div>
 
     <!-- 中间：转换按钮 — 始终可见 -->
-    <div class="flex flex-col items-center justify-center flex-shrink-0" style="width: 72px">
+    <div class="flex flex-col items-center justify-center flex-shrink-0" style="width: 80px">
       <button
         @click="startConvert"
         :disabled="fileList.length === 0 || processing || hasErrors"
-        class="py-3 px-4 rounded-lg text-sm font-medium transition-all w-full"
+        class="flex flex-col items-center gap-1 py-3 px-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
         :style="fileList.length > 0 && !processing && !hasErrors
           ? { background: 'var(--accent-color)', color: '#fff' }
           : { background: 'var(--bg-card-hover)', color: 'var(--text-muted)', cursor: 'not-allowed' }"
-        :title="fileList.length === 0 ? '请先选择文档' : ''"
+        :title="fileList.length === 0 ? '请先选择文档' : processing ? '正在转换...' : ''"
       >
-        <span v-if="processing" class="inline-block animate-spin">⟳</span>
-        <span v-else>▶ 转换</span>
+        <!-- SVG 加载动画 -->
+        <svg v-if="processing" class="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.2"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <span v-else class="text-lg leading-none">▶</span>
+        <span class="text-xs leading-tight">{{ processing ? '转换中' : '转换' }}</span>
       </button>
     </div>
 
@@ -79,8 +87,12 @@ export const meta: ToolMeta = {
         <p class="text-sm" style="color: var(--text-muted)">请先选择文档文件</p>
       </div>
 
-      <div v-else-if="convertResults.length === 0" class="flex-1 flex items-center justify-center">
+      <div v-else-if="convertResults.length === 0 && !processing" class="flex-1 flex items-center justify-center">
         <p class="text-sm" style="color: var(--text-muted)">点击"转换"开始</p>
+      </div>
+
+      <div v-else-if="processing && convertResults.length === 0" class="flex-1 flex items-center justify-center">
+        <p class="text-sm" style="color: var(--text-muted)">正在转换中...</p>
       </div>
 
       <div v-else class="flex-1 overflow-y-auto space-y-1.5">
