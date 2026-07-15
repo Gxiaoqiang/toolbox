@@ -224,12 +224,17 @@ public class DocAgentToolkit {
 
         byte[] docBytes = loadFile(fileId);
         String baseName = extractBaseName(fileId);
-        byte[] result = documentService.convertToPdf(docBytes, baseName + ".doc");
+        try {
+            byte[] result = documentService.convertToPdf(docBytes, baseName + ".doc");
 
-        String resultId = fileManager.storeBytes(result, baseName + ".pdf");
-        lastResult = new ToolResult(resultId, baseName + ".pdf", result.length);
-        return String.format("转换完成！文件 ID: %s, 大小: %.1fMB",
-                resultId, result.length / (1024.0 * 1024.0));
+            String resultId = fileManager.storeBytes(result, baseName + ".pdf");
+            lastResult = new ToolResult(resultId, baseName + ".pdf", result.length);
+            return String.format("转换完成！文件 ID: %s, 大小: %.1fMB",
+                    resultId, result.length / (1024.0 * 1024.0));
+        } catch (Exception e) {
+            log.error("[DocAgentToolkit#docToPdf] conversion failed: {}", e.getMessage());
+            return "错误: 文档转 PDF 失败 — " + e.getMessage();
+        }
     }
 
     @Tool(name = "mdToDocx", description = "将 Markdown 文本转换为 DOCX 文件")

@@ -56,8 +56,12 @@ async function handleSend(): Promise<void> {
   const text = inputText.value.trim()
   const files = [...pendingFiles.value]
   if (!text && files.length === 0) return
+
+  // 立即清空输入
   pendingFiles.value = []
   inputText.value = ''
+  await nextTick()
+
   await sendMessage(text, files.length > 0 ? files : undefined)
   // 重置 textarea 高度
   nextTick(() => {
@@ -155,29 +159,26 @@ function formatSize(bytes: number): string {
       @dragover.prevent
       @drop.prevent="handleDrop">
       <div class="input-box">
+        <label class="upload-btn" title="上传文件">
+          <span class="upload-icon">📎</span>
+          <input type="file" multiple hidden
+            @change="handleFileSelect"
+            accept=".pdf,.doc,.docx,.wps,.md" />
+        </label>
         <textarea ref="textareaRef" v-model="inputText"
           @keydown="handleKeydown"
           @input="autoResize"
           :disabled="inputDisabled"
-          :placeholder="state === 'processing' ? '处理中...' : '输入你的需求，或拖拽文件到此处...'"
+          :placeholder="state === 'processing' ? '处理中...' : '告诉文档助手你要做什么，比如：把 PDF 切成每 2 页一份'"
           rows="1" class="chat-input" />
-        <div class="input-actions">
-          <label class="action-btn" title="上传文件">
-            <span class="action-icon">📎</span>
-            <input type="file" multiple hidden
-              @change="handleFileSelect"
-              accept=".pdf,.doc,.docx,.wps,.md" />
-          </label>
-          <span class="action-divider"></span>
-          <button v-if="state === 'processing'" class="send-btn cancel-btn" @click="cancelProcessing">
-            <span class="send-icon">■</span>
-          </button>
-          <button v-else class="send-btn" :class="{ 'send-btn--active': !!(inputText.trim() || pendingFiles.length) }"
-            :disabled="!inputText.trim() && pendingFiles.length === 0"
-            @click="handleSend">
-            <span class="send-icon">↑</span>
-          </button>
-        </div>
+        <button v-if="state === 'processing'" class="send-btn cancel-btn" @click="cancelProcessing">
+          <span class="send-icon">■</span>
+        </button>
+        <button v-else class="send-btn" :class="{ 'send-btn--active': !!(inputText.trim() || pendingFiles.length) }"
+          :disabled="!inputText.trim() && pendingFiles.length === 0"
+          @click="handleSend">
+          <span class="send-icon">↑</span>
+        </button>
       </div>
       <p class="input-hint">Enter 发送，Shift+Enter 换行 · 支持 PDF / DOCX / WPS / MD 文件</p>
     </div>
@@ -290,11 +291,11 @@ function formatSize(bytes: number): string {
 .input-box {
   display: flex;
   align-items: flex-end;
-  gap: 0;
+  gap: 4px;
   background: var(--bg-main);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 8px 8px 8px 16px;
+  padding: 6px 6px 6px 10px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .input-box:focus-within {
@@ -303,7 +304,7 @@ function formatSize(bytes: number): string {
 }
 .chat-input {
   flex: 1;
-  padding: 6px 0;
+  padding: 6px 2px;
   border: none;
   background: transparent;
   color: var(--text-primary);
@@ -318,30 +319,19 @@ function formatSize(bytes: number): string {
 .chat-input::placeholder {
   color: var(--text-muted);
 }
-.input-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  padding-left: 8px;
-}
-.action-btn {
+.upload-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px; height: 32px;
-  border-radius: 8px;
+  width: 34px; height: 34px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background 0.15s;
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
-.action-btn:hover { background: var(--bg-card-hover); }
-.action-icon { font-size: 18px; }
-.action-divider {
-  width: 1px; height: 20px;
-  background: var(--border-color);
-  margin: 0 4px;
-}
+.upload-btn:hover { background: var(--bg-card-hover); }
+.upload-icon { font-size: 18px; }
 .send-btn {
   display: flex;
   align-items: center;
