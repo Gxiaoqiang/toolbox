@@ -77,6 +77,7 @@ public class AgentServiceImpl implements AgentService {
         List<Msg> history = buildHistory(conversationId);
 
         // 6. 运行 ReActAgent
+        log.info("[AgentServiceImpl#handle] sending thinking event, input={}", agentInput);
         eventConsumer.accept(ChatEvent.thinking("正在分析你的需求..."));
         String finalConvId = conversationId;
 
@@ -91,12 +92,19 @@ public class AgentServiceImpl implements AgentService {
             List<Msg> messages = new ArrayList<>(history);
             messages.add(userMsg);
 
+            log.info("[AgentServiceImpl#handle] calling agent with {} history msgs + 1 user msg",
+                    history.size());
             // 调用 Agent（ReActAgent.call() 返回 Mono<Msg>，block 等待结果）
             Msg result = docAgent.call(messages, RuntimeContext.empty())
                     .block(Duration.ofSeconds(120));
 
+            log.info("[AgentServiceImpl#handle] agent returned, hasText={}",
+                    result != null && result.getTextContent() != null);
+
             // 7. 提取回复文本
             String replyText = extractReply(result);
+            log.info("[AgentServiceImpl#handle] reply text ({} chars): {}",
+                    replyText.length(), replyText);
             eventConsumer.accept(ChatEvent.reply(replyText));
 
             // 8. 追加助手回复到对话历史
@@ -107,6 +115,7 @@ public class AgentServiceImpl implements AgentService {
             eventConsumer.accept(ChatEvent.error(errorClassifier.classify(e)));
         }
 
+        log.info("[AgentServiceImpl#handle] sending done event");
         eventConsumer.accept(ChatEvent.done());
         return conversationId;
     }

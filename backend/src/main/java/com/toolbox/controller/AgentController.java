@@ -100,6 +100,10 @@ public class AgentController {
             try {
                 agentService.handle(message, files, finalConvId, event -> {
                     try {
+                        log.info("[AgentController#chat] SSE event: type={}, text={}",
+                                event.getType(),
+                                event.getText() != null ? event.getText().substring(0,
+                                        Math.min(50, event.getText().length())) : "null");
                         emitter.send(SseEmitter.event()
                                 .name(event.getType())
                                 .data(event.toJson()));
