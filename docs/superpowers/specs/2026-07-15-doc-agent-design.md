@@ -174,12 +174,13 @@ public ToolResult pdfCompress(
 @Tool(name = "pdfToImage", description = "将 PDF 页面转换为图片")
 public ToolResult pdfToImage(
     @ToolParam("PDF 文件") FileRef file,
-    @ToolParam("输出格式: png / jpeg，默认 png") String format,
+    @ToolParam("输出格式: png / jpeg / webp，默认 png") String format,
     @ToolParam("DPI 分辨率 72-600，默认 150") int dpi,
+    @ToolParam("JPEG 质量 0.0-1.0，默认 0.9，仅 format=jpeg 时生效") float quality,
     @ToolParam("页码范围，如 '1-5'，不传=全部") String pageRange);
 ```
 
-→ 委托 `PdfToImageService.convertToImages(bytes, filename, dpi, format, 0.9f, pageRange)`
+→ 委托 `PdfToImageService.convertToImages(bytes, filename, dpi, format, quality, pageRange)`
 
 #### 4.2.5 docToPdf
 
@@ -221,15 +222,29 @@ public ToolResult mdToDocx(
 | 文档转 PDF | 5 | 50MB | .doc/.docx/.wps |
 | Markdown 转 DOCX | — | — | 文本输入 |
 
+## 可选参数速查（PDF 转图片 / PDF 压缩 有多个选项）
+
+| 工具 | 可选参数 | 默认值 | 说明 |
+|------|---------|--------|------|
+| PDF 转图片 | format | png | png(无损大) / jpeg(有损小) / webp(平衡) |
+| | dpi | 150 | 72(最小) / 150(清晰) / 300(高清) / 600(印刷级) |
+| | quality | 0.9 | 仅 jpeg 生效: 0.7(小文件) / 0.9(平衡) / 1.0(最大) |
+| | pageRange | 全部 | 如 "1-5" 或 "1,3,5" |
+| PDF 压缩 | level | 3 | 1(极度) / 2(高度) / 3(推荐) / 4(轻度) / 5(极限画质) |
+
 ## 规则
 1. 用户上传文件后，主动询问要做什么操作（提供快捷选项）
 2. 用户提出操作但缺文件时，提醒上传并说明支持的格式和限制
-3. 参数不明确时必须追问（如切分没给页数/模式、压缩没给等级、转图片没给 DPI）
-4. 用户提出超出限制的需求时（如合并 15 个文件），在对话中直接告知上限
-5. 处理完成后展示结果摘要，询问是否继续
-6. 遇到错误时解释原因，给出具体建议
-7. 不支持的操作诚实告知，不要编造能力
-8. 始终以中文回复，语气友好简洁
+3. **可选参数引导**: 有选项的工具（PDF 转图片、PDF 压缩），遵循"默认优先 + 按需询问":
+   - 用户未提参数 → 使用默认值，告知用户"使用默认 png/150 DPI，需要调整吗？"
+   - 用户提了部分参数 → 补全默认值，确认剩余参数
+   - 用户明确要高质量 → 推荐 dpi=300 + format=png；用户要小文件 → 推荐 format=jpeg + quality=0.7
+4. 参数不明确时必须追问（如切分没给页数/模式）
+5. 用户提出超出限制的需求时（如合并 15 个文件），在对话中直接告知上限
+6. 处理完成后展示结果摘要，询问是否继续
+7. 遇到错误时解释原因，给出具体建议
+8. 不支持的操作诚实告知，不要编造能力
+9. 始终以中文回复，语气友好简洁
 ```
 
 ### 4.4 ConversationManager
@@ -335,7 +350,37 @@ AGENT_TOO_MANY_CONNECTIONS(503, "当前使用人数较多，请稍后重试"),
 
 遵循现有 `模块_错误类型` 命名规范。
 
-### 6.3 Agent 异常对话示例
+### 6.3 Agent 对话示例
+
+#### 可选参数引导（正向）
+
+```
+用户: [上传 report.pdf (30页)]
+Agent: "你想对这个 PDF 做什么？"
+       [切分] [合并] [压缩] [转图片]
+
+用户: "转成图片"
+
+Agent: "好的，使用默认设置: PNG 格式、150 DPI、全部页面。
+       需要调整吗？你也可以选择:
+       · 格式: PNG(无损) / JPEG(体积小) / WebP(平衡)
+       · 清晰度: 72(最小) / 150(清晰) / 300(高清)
+       · 范围: 全部 / 指定页(如 1-5)"
+
+用户: "要 JPEG，高清一点的"
+
+Agent: "好的，JPEG 格式 + 300 DPI + 90% 质量，共 30 页。
+       开始转换？"
+
+用户: "开始"
+
+Agent: "⏳ 正在转换...
+       ✅ 完成！30 张 JPEG 图片，共 12.5MB
+       📦 report_images.zip [下载]
+       还需要处理其他文件吗？"
+```
+
+#### 异常场景
 
 ```
 用户: "把这张图片转成 PDF"
