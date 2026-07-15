@@ -20,10 +20,10 @@ toolbox:
   # ============================================
   agent:
     # LLM 提供商: dashscope / openai / deepseek
-    llm-provider: dashscope
-    llm-model: qwen-plus
+    llm-provider: deepseek
+    llm-model: deepseek-v4-pro
     # API Key 从环境变量注入，严禁硬编码
-    llm-api-key: ${DASHSCOPE_API_KEY:}
+    llm-api-key: sk-7c4596ab33fd44798299a5332002bcfa
     # SSE 连接管理
     sse:
       max-connections: 50

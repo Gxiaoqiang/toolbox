@@ -11,6 +11,7 @@ import io.agentscope.core.ReActAgent;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.model.DashScopeChatModel;
 import io.agentscope.core.model.Model;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.tool.Toolkit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +34,9 @@ import java.time.Duration;
 public class DocAgentConfig {
 
     private static final Logger log = LoggerFactory.getLogger(DocAgentConfig.class);
+
+    @Value("${toolbox.agent.llm-provider:dashscope}")
+    private String llmProvider;
 
     @Value("${toolbox.agent.llm-model:qwen-plus}")
     private String llmModel;
@@ -106,9 +110,29 @@ public class DocAgentConfig {
     @Bean
     public Model agentModel() {
         if (llmApiKey == null || llmApiKey.isBlank()) {
-            log.warn("[DocAgentConfig#agentModel] DASHSCOPE_API_KEY not configured, " +
+            log.warn("[DocAgentConfig#agentModel] LLM API Key not configured, " +
                     "agent LLM calls will fail");
         }
+        if ("deepseek".equalsIgnoreCase(llmProvider)) {
+            // DeepSeek 兼容 OpenAI API
+            log.info("[DocAgentConfig#agentModel] using DeepSeek provider, model={}", llmModel);
+            return OpenAIChatModel.builder()
+                    .apiKey(llmApiKey)
+                    .modelName(llmModel)
+                    .baseUrl("https://api.deepseek.com")
+                    .stream(true)
+                    .build();
+        }
+        if ("openai".equalsIgnoreCase(llmProvider)) {
+            log.info("[DocAgentConfig#agentModel] using OpenAI provider, model={}", llmModel);
+            return OpenAIChatModel.builder()
+                    .apiKey(llmApiKey)
+                    .modelName(llmModel)
+                    .stream(true)
+                    .build();
+        }
+        // 默认: DashScope (阿里云百炼)
+        log.info("[DocAgentConfig#agentModel] using DashScope provider, model={}", llmModel);
         return DashScopeChatModel.builder()
                 .apiKey(llmApiKey)
                 .modelName(llmModel)
