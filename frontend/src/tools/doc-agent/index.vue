@@ -11,11 +11,21 @@ export const meta: ToolMeta = {
 </script>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useAgentChat } from '@/composables/useAgentChat'
+import { marked } from 'marked'
+
+// 配置 marked 渲染选项
+marked.setOptions({ breaks: true, gfm: true })
 
 defineOptions({ inheritAttrs: false })
 defineExpose({ meta })
+
+/** 将 Markdown 文本渲染为 HTML */
+function renderMarkdown(text: string): string {
+  if (!text) return ''
+  return marked.parse(text) as string
+}
 
 const {
   messages, state, inputDisabled,
@@ -92,10 +102,10 @@ function formatSize(bytes: number): string {
           'msg-bubble--error': msg.isError
         }">
           <!-- 文件附件 -->
-          <div v-if="msg.files" class="msg-files">
+          <div v-if="msg.files && msg.files.length > 0" class="msg-files">
             <div v-for="f in msg.files" :key="f.name" class="msg-file-chip">
-              <span>📎</span>
-              <span>{{ f.name }}</span>
+              <span class="msg-file-icon">📄</span>
+              <span class="msg-file-name">{{ f.name }}</span>
               <span class="msg-file-size">{{ formatSize(f.size) }}</span>
             </div>
           </div>
@@ -108,6 +118,10 @@ function formatSize(bytes: number): string {
             </svg>
             {{ msg.content || '处理中...' }}
           </span>
+          <!-- 助手消息使用 Markdown 渲染 -->
+          <span v-else-if="msg.role === 'assistant'" class="msg-text markdown-body"
+            v-html="renderMarkdown(msg.content)" />
+          <!-- 用户消息纯文本 -->
           <span v-else class="msg-text">{{ msg.content }}</span>
 
           <!-- 结果卡片 -->
@@ -287,4 +301,33 @@ function formatSize(bytes: number): string {
 }
 .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-cancel { background: #e53e3e; color: #fff; }
+
+/* ===== Markdown 渲染样式 ===== */
+.markdown-body :deep(table) {
+  border-collapse: collapse; width: 100%; margin: 8px 0;
+  font-size: 13px;
+}
+.markdown-body :deep(th), .markdown-body :deep(td) {
+  border: 1px solid var(--border-color); padding: 6px 10px;
+  text-align: left;
+}
+.markdown-body :deep(th) { background: var(--bg-main); font-weight: 600; }
+.markdown-body :deep(code) {
+  background: var(--bg-main); padding: 1px 5px; border-radius: 4px;
+  font-size: 12px; font-family: 'SF Mono', monospace;
+}
+.markdown-body :deep(pre) {
+  background: var(--bg-main); padding: 10px; border-radius: 8px;
+  overflow-x: auto; font-size: 12px;
+}
+.markdown-body :deep(pre code) { background: none; padding: 0; }
+.markdown-body :deep(p) { margin: 4px 0; }
+.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 20px; margin: 4px 0; }
+.markdown-body :deep(strong) { font-weight: 600; }
+.markdown-body :deep(hr) { border: none; border-top: 1px solid var(--border-color); margin: 8px 0; }
+
+/* ===== 文件附件 ===== */
+.msg-file-icon { font-size: 16px; flex-shrink: 0; }
+.msg-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-file-size { color: var(--text-muted); flex-shrink: 0; }
 </style>

@@ -160,11 +160,12 @@ public class DocAgentConfig {
     }
 
     @Bean
-    public AgentService agentService(ReActAgent docAgent,
+    public AgentService agentService(ReActAgent docAgent, DocAgentToolkit toolkit,
                                       ConversationManager conversationManager,
                                       FileManager fileManager,
                                       ErrorClassifier errorClassifier) {
-        return new AgentServiceImpl(docAgent, conversationManager, fileManager, errorClassifier);
+        return new AgentServiceImpl(docAgent, toolkit, conversationManager,
+                fileManager, errorClassifier);
     }
 
     /**

@@ -26,13 +26,16 @@ public class AgentServiceImpl implements AgentService {
     private static final Logger log = LoggerFactory.getLogger(AgentServiceImpl.class);
 
     private final ReActAgent docAgent;
+    private final DocAgentToolkit toolkit;
     private final ConversationManager conversationManager;
     private final FileManager fileManager;
     private final ErrorClassifier errorClassifier;
 
-    public AgentServiceImpl(ReActAgent docAgent, ConversationManager conversationManager,
+    public AgentServiceImpl(ReActAgent docAgent, DocAgentToolkit toolkit,
+                            ConversationManager conversationManager,
                             FileManager fileManager, ErrorClassifier errorClassifier) {
         this.docAgent = docAgent;
+        this.toolkit = toolkit;
         this.conversationManager = conversationManager;
         this.fileManager = fileManager;
         this.errorClassifier = errorClassifier;
@@ -101,13 +104,23 @@ public class AgentServiceImpl implements AgentService {
             log.info("[AgentServiceImpl#handle] agent returned, hasText={}",
                     result != null && result.getTextContent() != null);
 
-            // 7. 提取回复文本
+            // 7. 检查工具产物（如果有则推送 result 事件）
+            DocAgentToolkit.ToolResult toolResult = toolkit.getLastResult();
+            if (toolResult != null) {
+                log.info("[AgentServiceImpl#handle] tool produced file: {} ({} bytes)",
+                        toolResult.fileName(), toolResult.size());
+                eventConsumer.accept(ChatEvent.result(
+                        toolResult.fileName(), toolResult.fileId(),
+                        formatSize(toolResult.size())));
+            }
+
+            // 8. 提取回复文本
             String replyText = extractReply(result);
             log.info("[AgentServiceImpl#handle] reply text ({} chars): {}",
                     replyText.length(), replyText);
             eventConsumer.accept(ChatEvent.reply(replyText));
 
-            // 8. 追加助手回复到对话历史
+            // 9. 追加助手回复到对话历史
             conversationManager.appendAssistantMessage(finalConvId, replyText);
 
         } catch (Exception e) {
@@ -164,5 +177,11 @@ public class AgentServiceImpl implements AgentService {
         if (msg == null) return "处理完成，请查看结果。";
         String text = msg.getTextContent();
         return (text != null && !text.isBlank()) ? text : "处理完成。";
+    }
+
+    private static String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
     }
 }

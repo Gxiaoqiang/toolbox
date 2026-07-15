@@ -35,6 +35,9 @@ public class DocAgentToolkit {
     private final MarkdownService markdownService;
     private final FileManager fileManager;
 
+    /** 最后一次工具调用的产物信息 */
+    private volatile ToolResult lastResult;
+
     public DocAgentToolkit(PdfService pdfService, PdfCompressService pdfCompressService,
                            PdfToImageService pdfToImageService,
                            DocumentService documentService, MarkdownService markdownService,
@@ -46,6 +49,16 @@ public class DocAgentToolkit {
         this.markdownService = markdownService;
         this.fileManager = fileManager;
     }
+
+    /** 获取最后一次工具调用的产物（AgentService 用于推送 result SSE 事件） */
+    public ToolResult getLastResult() {
+        ToolResult r = lastResult;
+        lastResult = null; // 一次性消费
+        return r;
+    }
+
+    /** 工具产物记录 */
+    public record ToolResult(String fileId, String fileName, long size) {}
 
     // ===== 辅助方法 =====
 
@@ -105,6 +118,7 @@ public class DocAgentToolkit {
                 pages != null ? pages : "", everyN, true);
 
         String resultId = fileManager.storeBytes(result, baseName + "_split.zip");
+        lastResult = new ToolResult(resultId, baseName + "_split.zip", result.length);
         int pageCount = estimatePageCount(pdfBytes);
         return String.format("切分完成！%d 页 PDF 已拆分, 文件 ID: %s, 大小: %.1fMB",
                 pageCount, resultId, result.length / (1024.0 * 1024.0));
@@ -132,6 +146,7 @@ public class DocAgentToolkit {
 
         byte[] result = pdfService.mergePdf(bytesList, true);
         String resultId = fileManager.storeBytes(result, "merged.pdf");
+        lastResult = new ToolResult(resultId, "merged.pdf", result.length);
         return String.format("合并完成！%d 个文件 → 1 个 PDF, 文件 ID: %s, 大小: %.1fMB",
                 ids.length, resultId, result.length / (1024.0 * 1024.0));
     }
@@ -155,6 +170,7 @@ public class DocAgentToolkit {
         PdfCompressResult result = pdfCompressService.compress(pdfBytes, baseName + ".pdf", level);
 
         String resultId = fileManager.storeBytes(result.getData(), baseName + "_compressed.pdf");
+        lastResult = new ToolResult(resultId, baseName + "_compressed.pdf", result.getData().length);
         return String.format("压缩完成！%.1fMB → %.1fMB (%.0f%%), 文件 ID: %s",
                 result.getOriginalSize() / (1024.0 * 1024.0),
                 result.getCompressedSize() / (1024.0 * 1024.0),
@@ -189,6 +205,7 @@ public class DocAgentToolkit {
                 (pageRange != null && !pageRange.isBlank()) ? pageRange : null);
 
         String resultId = fileManager.storeBytes(result.getData(), baseName + "_images.zip");
+        lastResult = new ToolResult(resultId, baseName + "_images.zip", result.getData().length);
         return String.format("转换完成！格式: %s, DPI: %d, 文件 ID: %s, 大小: %.1fMB",
                 format.toUpperCase(), dpi, resultId,
                 result.getData().length / (1024.0 * 1024.0));
@@ -210,6 +227,7 @@ public class DocAgentToolkit {
         byte[] result = documentService.convertToPdf(docBytes, baseName + ".doc");
 
         String resultId = fileManager.storeBytes(result, baseName + ".pdf");
+        lastResult = new ToolResult(resultId, baseName + ".pdf", result.length);
         return String.format("转换完成！文件 ID: %s, 大小: %.1fMB",
                 resultId, result.length / (1024.0 * 1024.0));
     }
@@ -228,6 +246,7 @@ public class DocAgentToolkit {
 
         byte[] result = markdownService.convertMarkdownToDocx(markdownContent);
         String resultId = fileManager.storeBytes(result, outputName + ".docx");
+        lastResult = new ToolResult(resultId, outputName + ".docx", result.length);
         return String.format("转换完成！%d 字符 → DOCX, 文件 ID: %s, 大小: %.1fKB",
                 markdownContent.length(), resultId, result.length / 1024.0);
     }
