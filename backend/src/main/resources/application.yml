@@ -15,16 +15,9 @@ toolbox:
     binary-path: soffice
     # 最大并发转换数（每个 soffice 进程约占用 200-500MB 内存）
     max-concurrent: 10
-
-logging:
-  level:
-    root: INFO
-    com.toolbox: DEBUG
-
-# ============================================
-# Agent — 文档处理 AI Agent 配置
-# ============================================
-toolbox:
+  # ============================================
+  # Agent — 文档处理 AI Agent 配置
+  # ============================================
   agent:
     # LLM 提供商: dashscope / openai / deepseek
     llm-provider: dashscope
@@ -45,3 +38,8 @@ toolbox:
       upload-dir: ${java.io.tmpdir}/toolbox-agent
       cleanup-interval-minutes: 10
       max-file-size: 52428800
+
+logging:
+  level:
+    root: INFO
+    com.toolbox: DEBUG
