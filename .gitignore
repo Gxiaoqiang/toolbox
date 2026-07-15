@@ -18,6 +18,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Claude (project harness)
+.claude/settings.local.json
+
 # Superpowers internal
 .superpowers/
 docs/superpowers/
