@@ -11,17 +11,15 @@ export const meta: ToolMeta = {
 </script>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useAgentChat } from '@/composables/useAgentChat'
 import { marked } from 'marked'
 
-// 配置 marked 渲染选项
 marked.setOptions({ breaks: true, gfm: true })
 
 defineOptions({ inheritAttrs: false })
 defineExpose({ meta })
 
-/** 将 Markdown 文本渲染为 HTML */
 function renderMarkdown(text: string): string {
   if (!text) return ''
   return marked.parse(text) as string
@@ -35,10 +33,10 @@ const {
 const inputText = ref('')
 const chatContainer = ref<HTMLElement | null>(null)
 const pendingFiles = ref<File[]>([])
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 onMounted(() => initChat())
 
-// 自动滚动到底部
 watch(messages, async () => {
   await nextTick()
   if (chatContainer.value) {
@@ -46,12 +44,27 @@ watch(messages, async () => {
   }
 }, { deep: true })
 
+// 自动调整 textarea 高度
+function autoResize(): void {
+  const el = textareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+}
+
 async function handleSend(): Promise<void> {
   const text = inputText.value.trim()
   const files = [...pendingFiles.value]
+  if (!text && files.length === 0) return
   pendingFiles.value = []
   inputText.value = ''
   await sendMessage(text, files.length > 0 ? files : undefined)
+  // 重置 textarea 高度
+  nextTick(() => {
+    if (textareaRef.value) {
+      textareaRef.value.style.height = 'auto'
+    }
+  })
 }
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -85,13 +98,6 @@ function formatSize(bytes: number): string {
 
 <template>
   <div class="doc-agent">
-    <!-- 顶部 -->
-    <header class="agent-header">
-      <span class="agent-logo">🤖</span>
-      <span class="agent-title">文档助手</span>
-      <span class="agent-subtitle">AI 对话式文档处理</span>
-    </header>
-
     <!-- 消息列表 -->
     <div ref="chatContainer" class="agent-chat">
       <div v-for="(msg, i) in messages" :key="i" class="msg-row"
@@ -118,7 +124,7 @@ function formatSize(bytes: number): string {
             </svg>
             {{ msg.content || '处理中...' }}
           </span>
-          <!-- 助手消息使用 Markdown 渲染 -->
+          <!-- 助手消息 Markdown 渲染 -->
           <span v-else-if="msg.role === 'assistant'" class="msg-text markdown-body"
             v-html="renderMarkdown(msg.content)" />
           <!-- 用户消息纯文本 -->
@@ -138,35 +144,42 @@ function formatSize(bytes: number): string {
     <!-- 待发送文件 -->
     <div v-if="pendingFiles.length > 0" class="agent-pending">
       <div v-for="(f, idx) in pendingFiles" :key="f.name + idx" class="pending-chip">
-        <span>📎 {{ f.name }}</span>
+        <span class="pending-name">📄 {{ f.name }}</span>
+        <span class="pending-size">{{ formatSize(f.size) }}</span>
         <button class="pending-remove" @click="removeFile(idx)">×</button>
       </div>
     </div>
 
-    <!-- 底部输入区 -->
-    <div class="agent-input-row"
+    <!-- 底部输入区 — DeepSeek 风格 -->
+    <div class="agent-input-area"
       @dragover.prevent
       @drop.prevent="handleDrop">
-      <label class="attach-btn" title="上传文件">
-        📎
-        <input type="file" multiple hidden
-          @change="handleFileSelect"
-          accept=".pdf,.doc,.docx,.wps,.md" />
-      </label>
-
-      <textarea v-model="inputText" @keydown="handleKeydown"
-        :disabled="inputDisabled"
-        :placeholder="state === 'processing' ? '处理中...' : '输入你的需求，或拖拽文件到此处...'"
-        rows="1" class="chat-input" />
-
-      <button v-if="state === 'processing'" class="btn-cancel" @click="cancelProcessing">
-        取消
-      </button>
-      <button v-else class="btn-send"
-        :disabled="!inputText.trim() && pendingFiles.length === 0"
-        @click="handleSend">
-        发送
-      </button>
+      <div class="input-box">
+        <textarea ref="textareaRef" v-model="inputText"
+          @keydown="handleKeydown"
+          @input="autoResize"
+          :disabled="inputDisabled"
+          :placeholder="state === 'processing' ? '处理中...' : '输入你的需求，或拖拽文件到此处...'"
+          rows="1" class="chat-input" />
+        <div class="input-actions">
+          <label class="action-btn" title="上传文件">
+            <span class="action-icon">📎</span>
+            <input type="file" multiple hidden
+              @change="handleFileSelect"
+              accept=".pdf,.doc,.docx,.wps,.md" />
+          </label>
+          <span class="action-divider"></span>
+          <button v-if="state === 'processing'" class="send-btn cancel-btn" @click="cancelProcessing">
+            <span class="send-icon">■</span>
+          </button>
+          <button v-else class="send-btn" :class="{ 'send-btn--active': !!(inputText.trim() || pendingFiles.length) }"
+            :disabled="!inputText.trim() && pendingFiles.length === 0"
+            @click="handleSend">
+            <span class="send-icon">↑</span>
+          </button>
+        </div>
+      </div>
+      <p class="input-hint">Enter 发送，Shift+Enter 换行 · 支持 PDF / DOCX / WPS / MD 文件</p>
     </div>
   </div>
 </template>
@@ -178,42 +191,28 @@ function formatSize(bytes: number): string {
   flex-direction: column;
   height: calc(100vh - 64px);
   background: var(--bg-main);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
 }
-
-/* ===== 顶部 ===== */
-.agent-header {
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.agent-logo { font-size: 20px; }
-.agent-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
-.agent-subtitle { font-size: 12px; color: var(--text-muted); margin-left: auto; }
 
 /* ===== 消息列表 ===== */
 .agent-chat {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 .msg-row { display: flex; max-width: 100%; }
 .msg-row--user { justify-content: flex-end; }
 .msg-row--bot  { justify-content: flex-start; }
 
 .msg-bubble {
-  max-width: 75%;
-  padding: 10px 14px;
-  border-radius: 12px;
+  max-width: 78%;
+  padding: 12px 16px;
+  border-radius: 14px;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -230,14 +229,21 @@ function formatSize(bytes: number): string {
   border-color: #e53e3e;
 }
 
-/* ===== 文件附件 ===== */
-.msg-files { margin-bottom: 6px; display: flex; flex-direction: column; gap: 4px; }
+/* ===== 文件附件（修复颜色） ===== */
+.msg-files { margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
 .msg-file-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 8px; border-radius: 6px;
-  background: var(--bg-main); font-size: 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 8px;
+  background: rgba(255,255,255,0.2);
+  font-size: 12px; color: inherit;
 }
-.msg-file-size { color: var(--text-muted); }
+.msg-bubble--bot .msg-file-chip {
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+}
+.msg-file-icon { font-size: 15px; flex-shrink: 0; }
+.msg-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.msg-file-size { opacity: 0.7; flex-shrink: 0; font-size: 11px; }
 
 /* ===== 处理中 ===== */
 .msg-processing { display: flex; align-items: center; gap: 8px; }
@@ -246,63 +252,134 @@ function formatSize(bytes: number): string {
 
 /* ===== 结果卡片 ===== */
 .msg-result {
-  margin-top: 8px; padding: 10px; border-radius: 8px;
+  margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+}
+.msg-bubble--bot .msg-result {
   background: var(--bg-main); border: 1px solid var(--border-color);
 }
-.msg-result-info { font-size: 13px; margin-bottom: 6px; }
+.msg-result-info { font-size: 13px; margin-bottom: 8px; }
 .msg-result-dl {
-  padding: 4px 12px; border-radius: 6px; font-size: 13px;
+  padding: 6px 16px; border-radius: 8px; font-size: 13px;
   background: var(--accent-color); color: #fff;
-  text-decoration: none; display: inline-block;
+  text-decoration: none; display: inline-block; font-weight: 500;
 }
 
 /* ===== 待发送文件 ===== */
 .agent-pending {
-  padding: 8px 20px; display: flex; gap: 8px; flex-wrap: wrap;
-  border-top: 1px solid var(--border-color);
+  padding: 8px 24px; display: flex; gap: 8px; flex-wrap: wrap;
+  border-top: 1px solid var(--border-color); background: var(--bg-surface);
 }
 .pending-chip {
-  display: flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 16px;
-  background: var(--bg-surface); border: 1px solid var(--border-color);
-  font-size: 12px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px;
+  background: var(--bg-main); border: 1px solid var(--border-color);
+  font-size: 13px; color: var(--text-primary);
 }
-.pending-remove { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; padding: 0; }
+.pending-name { font-weight: 500; }
+.pending-size { color: var(--text-muted); font-size: 11px; }
+.pending-remove { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 18px; padding: 0 0 0 4px; line-height: 1; }
 
-/* ===== 底部输入区 ===== */
-.agent-input-row {
-  padding: 12px 20px; border-top: 1px solid var(--border-color);
+/* ===== 底部输入区 — DeepSeek 风格 ===== */
+.agent-input-area {
+  padding: 16px 24px 12px;
+  border-top: 1px solid var(--border-color);
   background: var(--bg-surface);
-  display: flex; gap: 8px; align-items: flex-end;
   flex-shrink: 0;
 }
-.attach-btn {
-  padding: 8px; border-radius: 8px; cursor: pointer;
-  color: var(--text-secondary); font-size: 20px;
-  line-height: 1;
+.input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 8px 8px 8px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-box:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
 }
 .chat-input {
-  flex: 1; padding: 8px 12px; border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-main); color: var(--text-primary);
-  font-size: 14px; resize: none; outline: none;
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
   font-family: inherit;
+  max-height: 160px;
+  min-height: 26px;
 }
-.chat-input:focus {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent);
+.chat-input::placeholder {
+  color: var(--text-muted);
 }
-.btn-send, .btn-cancel {
-  padding: 8px 16px; border-radius: 8px; border: none;
-  cursor: pointer; font-size: 14px; white-space: nowrap;
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-left: 8px;
 }
-.btn-send {
-  background: var(--accent-color); color: #fff;
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  color: var(--text-secondary);
 }
-.btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-cancel { background: #e53e3e; color: #fff; }
+.action-btn:hover { background: var(--bg-card-hover); }
+.action-icon { font-size: 18px; }
+.action-divider {
+  width: 1px; height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  background: var(--border-color);
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+.send-btn--active {
+  background: var(--accent-color);
+  color: #fff;
+}
+.send-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.cancel-btn {
+  background: #e53e3e !important;
+  color: #fff !important;
+}
+.send-icon {
+  font-weight: 700;
+  line-height: 1;
+}
+.input-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+  user-select: none;
+}
 
-/* ===== Markdown 渲染样式 ===== */
+/* ===== Markdown 渲染 ===== */
 .markdown-body :deep(table) {
   border-collapse: collapse; width: 100%; margin: 8px 0;
   font-size: 13px;
@@ -313,21 +390,23 @@ function formatSize(bytes: number): string {
 }
 .markdown-body :deep(th) { background: var(--bg-main); font-weight: 600; }
 .markdown-body :deep(code) {
-  background: var(--bg-main); padding: 1px 5px; border-radius: 4px;
-  font-size: 12px; font-family: 'SF Mono', monospace;
+  background: var(--bg-main); padding: 2px 6px; border-radius: 4px;
+  font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .markdown-body :deep(pre) {
-  background: var(--bg-main); padding: 10px; border-radius: 8px;
-  overflow-x: auto; font-size: 12px;
+  background: var(--bg-main); padding: 12px; border-radius: 8px;
+  overflow-x: auto; font-size: 13px; margin: 8px 0;
 }
 .markdown-body :deep(pre code) { background: none; padding: 0; }
 .markdown-body :deep(p) { margin: 4px 0; }
 .markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 20px; margin: 4px 0; }
+.markdown-body :deep(li) { margin: 2px 0; }
 .markdown-body :deep(strong) { font-weight: 600; }
-.markdown-body :deep(hr) { border: none; border-top: 1px solid var(--border-color); margin: 8px 0; }
-
-/* ===== 文件附件 ===== */
-.msg-file-icon { font-size: 16px; flex-shrink: 0; }
-.msg-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.msg-file-size { color: var(--text-muted); flex-shrink: 0; }
+.markdown-body :deep(hr) { border: none; border-top: 1px solid var(--border-color); margin: 10px 0; }
+.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) {
+  margin: 12px 0 6px; font-weight: 600;
+}
+.markdown-body :deep(h1) { font-size: 18px; }
+.markdown-body :deep(h2) { font-size: 16px; }
+.markdown-body :deep(h3) { font-size: 14px; }
 </style>
