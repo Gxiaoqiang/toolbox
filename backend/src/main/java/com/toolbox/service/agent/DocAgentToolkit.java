@@ -232,8 +232,10 @@ public class DocAgentToolkit {
             return String.format("转换完成！文件 ID: %s, 大小: %.1fMB",
                     resultId, result.length / (1024.0 * 1024.0));
         } catch (Exception e) {
-            log.error("[DocAgentToolkit#docToPdf] conversion failed: {}", e.getMessage());
-            return "错误: 文档转 PDF 失败 — " + e.getMessage();
+            log.error("[DocAgentToolkit#docToPdf] conversion failed", e);
+            return "文档转 PDF 失败: LibreOffice 无法转换此文件。"
+                    + "请确认文件是有效的 .doc/.docx/.wps 格式，且没有损坏。"
+                    + "也可以尝试用 Word 另存为后再上传。";
         }
     }
 

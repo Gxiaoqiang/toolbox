@@ -72,7 +72,8 @@ async function handleSend(): Promise<void> {
 }
 
 function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  // 忽略 IME 输入法组合中的 Enter 键（中文输入时 composition 未结束）
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
     handleSend()
   }
