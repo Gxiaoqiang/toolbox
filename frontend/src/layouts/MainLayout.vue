@@ -28,6 +28,23 @@
 
       <!-- 导航菜单（收起时隐藏） -->
       <nav v-if="!sidebarCollapsed" class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        <!-- 置顶工具（文档助手等） -->
+        <div v-for="tool in pinnedTools" :key="tool.meta.id" class="mb-2">
+          <router-link :to="`/tools/${tool.meta.id}`"
+            class="flex items-center gap-2.5 px-2 py-2.5 rounded-lg text-sm transition-all duration-150 group relative"
+            :class="activeToolId === tool.meta.id ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60' : 'hover:bg-slate-50'"
+            :style="activeToolId === tool.meta.id ? {} : { color: 'var(--text-primary)' }"
+          >
+            <span v-if="activeToolId === tool.meta.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"></span>
+            <span class="text-lg flex-shrink-0">{{ tool.meta.icon || '🤖' }}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold truncate">{{ tool.meta.name }}</div>
+              <div class="text-[11px] truncate" style="color: var(--text-muted)">{{ tool.meta.description }}</div>
+            </div>
+          </router-link>
+        </div>
+        <div v-if="pinnedTools.length > 0" class="border-t mb-2" style="border-color: var(--border-color)"></div>
+
         <div v-for="category in categories" :key="category.key">
           <button
             @click="toggleCategory(category.key)"
@@ -40,20 +57,46 @@
 
           <div v-show="expandedCategories.has(category.key)" class="mb-2 overflow-hidden transition-all duration-200">
             <template v-for="group in category.groups" :key="group.name || '_ungrouped'">
-              <div v-if="group.name" class="flex items-center gap-1.5 px-3 py-1 mt-1 mb-0.5 text-[10px] font-semibold uppercase tracking-wider" style="color: var(--text-muted)">
-                <span class="w-0.5 h-3 rounded-full" style="background: var(--text-muted); opacity: 0.5"></span>{{ group.name }}
-              </div>
-              <router-link
-                v-for="tool in group.tools" :key="tool.meta.id" :to="`/tools/${tool.meta.id}`"
-                class="flex items-center gap-2.5 pl-5 pr-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
-                :class="activeToolId === tool.meta.id ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60' : 'hover:bg-slate-50 hover:text-slate-800'"
-                :style="activeToolId === tool.meta.id ? {} : { color: 'var(--text-secondary)' }"
-              >
-                <span v-if="activeToolId === tool.meta.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"></span>
-                <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="{ 'bg-blue-400': tool.meta.category === 'file', 'bg-violet-400': tool.meta.category === 'develop', 'bg-emerald-400': tool.meta.category === 'data' }"></span>
-                <span class="truncate">{{ tool.meta.name }}</span>
-                <span v-if="tool.meta.requiresBackend" class="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="需要后端支持"></span>
-              </router-link>
+              <!-- 有分组名：可折叠手风琴 -->
+              <template v-if="group.name">
+                <button
+                  @click="toggleGroup(category.key + '/' + group.name)"
+                  class="w-full flex items-center gap-2 pl-6 pr-2 py-1.5 mt-1 mb-0.5 rounded text-xs font-semibold hover:bg-slate-100/70 transition-colors"
+                  :style="{ color: groupColor(group.name) }"
+                >
+                  <span class="transform transition-transform duration-200 text-[10px]" :class="{ 'rotate-90': !collapsedGroups.has(category.key + '/' + group.name) }">▶</span>
+                  <span class="text-sm flex-shrink-0">📑</span>
+                  <span class="flex-1 text-left">{{ group.name }}</span>
+                  <span class="text-[10px] font-normal" style="color: var(--text-muted)">{{ group.tools.length }} 个</span>
+                </button>
+                <div v-show="!collapsedGroups.has(category.key + '/' + group.name)">
+                  <router-link
+                    v-for="tool in group.tools" :key="tool.meta.id" :to="`/tools/${tool.meta.id}`"
+                    class="flex items-center gap-2.5 pl-9 pr-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
+                    :class="activeToolId === tool.meta.id ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60' : 'hover:bg-slate-50 hover:text-slate-800'"
+                    :style="activeToolId === tool.meta.id ? {} : { color: 'var(--text-secondary)' }"
+                  >
+                    <span v-if="activeToolId === tool.meta.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"></span>
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="{ 'bg-blue-400': tool.meta.category === 'file', 'bg-violet-400': tool.meta.category === 'develop', 'bg-emerald-400': tool.meta.category === 'data' }"></span>
+                    <span class="truncate">{{ tool.meta.name }}</span>
+                    <span v-if="tool.meta.requiresBackend" class="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="需要后端支持"></span>
+                  </router-link>
+                </div>
+              </template>
+              <!-- 无分组名：直接列出工具 -->
+              <template v-else>
+                <router-link
+                  v-for="tool in group.tools" :key="tool.meta.id" :to="`/tools/${tool.meta.id}`"
+                  class="flex items-center gap-2.5 pl-6 pr-3 py-2 rounded-lg text-sm transition-all duration-150 group relative"
+                  :class="activeToolId === tool.meta.id ? 'bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200/60' : 'hover:bg-slate-50 hover:text-slate-800'"
+                  :style="activeToolId === tool.meta.id ? {} : { color: 'var(--text-secondary)' }"
+                >
+                  <span v-if="activeToolId === tool.meta.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-full"></span>
+                  <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="{ 'bg-blue-400': tool.meta.category === 'file', 'bg-violet-400': tool.meta.category === 'develop', 'bg-emerald-400': tool.meta.category === 'data' }"></span>
+                  <span class="truncate">{{ tool.meta.name }}</span>
+                  <span v-if="tool.meta.requiresBackend" class="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="需要后端支持"></span>
+                </router-link>
+              </template>
             </template>
           </div>
         </div>
@@ -174,20 +217,36 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 const activeToolId = computed(() => { const id = route.params.toolId; return typeof id === 'string' ? id : id[0] })
 const expandedCategories = ref(new Set<ToolCategory>(['file', 'develop', 'data']))
+const collapsedGroups = ref(new Set<string>())  // 折叠的工具包分组 key
 function toggleCategory(key: ToolCategory) {
   if (expandedCategories.value.has(key)) expandedCategories.value.delete(key)
   else expandedCategories.value.add(key)
   expandedCategories.value = new Set(expandedCategories.value)
 }
+function toggleGroup(groupKey: string) {
+  if (collapsedGroups.value.has(groupKey)) collapsedGroups.value.delete(groupKey)
+  else collapsedGroups.value.add(groupKey)
+  collapsedGroups.value = new Set(collapsedGroups.value)
+}
+
+/** 分组标题配色（与分类标题 text-secondary 区分） */
+const GROUP_COLORS: Record<string, string> = {
+  'PDF 工具包': '#6366f1',   // indigo-500
+  'JSON 工具箱': '#8b5cf6',  // violet-500
+}
+function groupColor(name: string): string {
+  return GROUP_COLORS[name] || 'var(--accent-color)'
+}
 
 const tools = computed(() => getTools())
+const pinnedTools = computed(() => tools.value.filter(t => t.meta.pinned))
 const currentTool = computed(() => tools.value.find((t) => t.meta.id === activeToolId.value))
 const totalToolCount = computed(() => tools.value.length)
 interface CategoryWithGroups { key: ToolCategory; groups: { name: string | null; tools: typeof tools.value }[] }
 const categories = computed<CategoryWithGroups[]>(() => {
   const catOrder: ToolCategory[] = ['file', 'develop', 'data']
   return catOrder.map((key) => {
-    const catTools = getToolsByCategory(key)
+    const catTools = getToolsByCategory(key).filter(t => !t.meta.pinned)
     const groupMap = new Map<string | null, typeof catTools>()
     for (const t of catTools) {
       const g = t.meta.group || null

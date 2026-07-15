@@ -17,6 +17,8 @@ export interface ToolMeta {
   requiresBackend?: boolean
   /** 工具分组（可选），同一分类下相同 group 的工具会聚合展示 */
   group?: string
+  /** 置顶展示（可选），在侧边栏最上方独立入口 */
+  pinned?: boolean
 }
 
 /** 完整工具定义（meta + 组件加载器） */

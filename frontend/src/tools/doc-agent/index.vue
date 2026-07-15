@@ -6,6 +6,7 @@ export const meta: ToolMeta = {
   description: 'AI 对话式文档处理，支持 PDF 切分/合并/压缩/转图片、文档转 PDF、Markdown 转 DOCX',
   icon: '🤖',
   category: 'file',
+  pinned: true,
 }
 </script>
 
