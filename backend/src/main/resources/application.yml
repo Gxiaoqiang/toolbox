@@ -9,7 +9,39 @@ spring:
       max-file-size: 50MB
       max-request-size: 50MB
 
+toolbox:
+  libreoffice:
+    # soffice 二进制路径
+    binary-path: soffice
+    # 最大并发转换数（每个 soffice 进程约占用 200-500MB 内存）
+    max-concurrent: 10
+
 logging:
   level:
     root: INFO
     com.toolbox: DEBUG
+
+# ============================================
+# Agent — 文档处理 AI Agent 配置
+# ============================================
+toolbox:
+  agent:
+    # LLM 提供商: dashscope / openai / deepseek
+    llm-provider: dashscope
+    llm-model: qwen-plus
+    # API Key 从环境变量注入，严禁硬编码
+    llm-api-key: ${DASHSCOPE_API_KEY:}
+    # SSE 连接管理
+    sse:
+      max-connections: 50
+      heartbeat-interval-ms: 15000
+      connection-timeout-ms: 300000
+    # 对话管理
+    conversation:
+      max-rounds: 50
+      ttl-minutes: 30
+    # 文件管理
+    file:
+      upload-dir: ${java.io.tmpdir}/toolbox-agent
+      cleanup-interval-minutes: 10
+      max-file-size: 52428800
