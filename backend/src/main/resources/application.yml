@@ -22,8 +22,10 @@ toolbox:
     # LLM 提供商: dashscope / openai / deepseek
     llm-provider: deepseek
     llm-model: deepseek-v4-pro
-    # API Key 从环境变量注入，严禁硬编码
+    # API Key
     llm-api-key: sk-7c4596ab33fd44798299a5332002bcfa
+    # API Base URL（可选。内网部署时改为自己的 OpenAI 兼容代理地址）
+    llm-base-url:
     # SSE 连接管理
     sse:
       max-connections: 50
@@ -35,7 +37,7 @@ toolbox:
       ttl-minutes: 30
     # 文件管理
     file:
-      upload-dir: ${java.io.tmpdir}/toolbox-agent
+      upload-dir: /tmp/toolbox-agent
       cleanup-interval-minutes: 10
       max-file-size: 52428800
 

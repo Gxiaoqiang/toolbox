@@ -43,6 +43,9 @@ public class DocAgentConfig {
     @Value("${toolbox.agent.llm-api-key:}")
     private String llmApiKey;
 
+    @Value("${toolbox.agent.llm-base-url:}")
+    private String llmBaseUrl;
+
     @Value("${toolbox.agent.sse.max-connections:50}")
     private int sseMaxConnections;
 
@@ -114,21 +117,14 @@ public class DocAgentConfig {
         }
         if ("deepseek".equalsIgnoreCase(llmProvider)) {
             // DeepSeek 兼容 OpenAI API
-            log.info("[DocAgentConfig#agentModel] using DeepSeek provider, model={}", llmModel);
-            return OpenAIChatModel.builder()
-                    .apiKey(llmApiKey)
-                    .modelName(llmModel)
-                    .baseUrl("https://api.deepseek.com")
-                    .stream(true)
-                    .build();
+            log.info("[DocAgentConfig#agentModel] using DeepSeek provider, model={}, baseUrl={}",
+                    llmModel, baseUrlOrDefault("https://api.deepseek.com"));
+            return buildOpenAiModel("https://api.deepseek.com");
         }
         if ("openai".equalsIgnoreCase(llmProvider)) {
-            log.info("[DocAgentConfig#agentModel] using OpenAI provider, model={}", llmModel);
-            return OpenAIChatModel.builder()
-                    .apiKey(llmApiKey)
-                    .modelName(llmModel)
-                    .stream(true)
-                    .build();
+            log.info("[DocAgentConfig#agentModel] using OpenAI provider, model={}, baseUrl={}",
+                    llmModel, baseUrlOrDefault("https://api.openai.com"));
+            return buildOpenAiModel("https://api.openai.com");
         }
         // 默认: DashScope (阿里云百炼)
         log.info("[DocAgentConfig#agentModel] using DashScope provider, model={}", llmModel);
@@ -166,6 +162,21 @@ public class DocAgentConfig {
                                       ErrorClassifier errorClassifier) {
         return new AgentServiceImpl(docAgent, toolkit, conversationManager,
                 fileManager, errorClassifier);
+    }
+
+    /** 配置的 baseUrl 优先，否则用默认值 */
+    private String baseUrlOrDefault(String defaultUrl) {
+        return (llmBaseUrl != null && !llmBaseUrl.isBlank()) ? llmBaseUrl : defaultUrl;
+    }
+
+    /** 构建 OpenAI 兼容 Model（DeepSeek / OpenAI / 内网自部署） */
+    private Model buildOpenAiModel(String defaultBaseUrl) {
+        return OpenAIChatModel.builder()
+                .apiKey(llmApiKey)
+                .modelName(llmModel)
+                .baseUrl(baseUrlOrDefault(defaultBaseUrl))
+                .stream(true)
+                .build();
     }
 
     /**
