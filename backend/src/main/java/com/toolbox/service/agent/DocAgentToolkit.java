@@ -224,8 +224,10 @@ public class DocAgentToolkit {
 
         byte[] docBytes = loadFile(fileId);
         String baseName = extractBaseName(fileId);
+        // 保留原始扩展名！LibreOffice 靠扩展名识别格式：.docx ≠ .doc
+        String ext = fileId.contains(".") ? fileId.substring(fileId.lastIndexOf('.')) : ".docx";
         try {
-            byte[] result = documentService.convertToPdf(docBytes, baseName + ".doc");
+            byte[] result = documentService.convertToPdf(docBytes, baseName + ext);
 
             String resultId = fileManager.storeBytes(result, baseName + ".pdf");
             lastResult = new ToolResult(resultId, baseName + ".pdf", result.length);
