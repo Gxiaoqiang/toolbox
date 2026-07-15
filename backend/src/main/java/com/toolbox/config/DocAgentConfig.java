@@ -8,11 +8,10 @@ import com.toolbox.service.document.DocumentService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
 import io.agentscope.core.ReActAgent;
-import io.agentscope.core.memory.InMemoryMemory;
-import io.agentscope.core.model.DashScopeChatModel;
 import io.agentscope.core.model.Model;
-import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.tool.Toolkit;
+import io.agentscope.extensions.model.dashscope.DashScopeChatModel;
+import io.agentscope.extensions.model.openai.OpenAIChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -156,7 +155,6 @@ public class DocAgentConfig {
                 .sysPrompt(sysPrompt)
                 .model(agentModel)
                 .toolkit(agentToolkit)
-                .memory(new InMemoryMemory())
                 .maxIters(8)
                 .build();
     }

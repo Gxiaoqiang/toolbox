@@ -3,6 +3,7 @@ package com.toolbox.service.agent.impl;
 import com.toolbox.model.agent.ChatEvent;
 import com.toolbox.service.agent.*;
 import io.agentscope.core.ReActAgent;
+import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import org.slf4j.Logger;
@@ -91,7 +92,7 @@ public class AgentServiceImpl implements AgentService {
             messages.add(userMsg);
 
             // 调用 Agent（ReActAgent.call() 返回 Mono<Msg>，block 等待结果）
-            Msg result = docAgent.call(messages)
+            Msg result = docAgent.call(messages, RuntimeContext.empty())
                     .block(Duration.ofSeconds(120));
 
             // 7. 提取回复文本
