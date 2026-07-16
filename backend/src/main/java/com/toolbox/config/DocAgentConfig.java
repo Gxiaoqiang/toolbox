@@ -58,7 +58,9 @@ public class DocAgentConfig {
     @Value("${toolbox.agent.conversation.max-rounds:50}")
     private int conversationMaxRounds;
 
-    @Value("${toolbox.agent.conversation.ttl-minutes:30}")
+
+    //默认12小时清理一次
+    @Value("${toolbox.agent.conversation.ttl-minutes:1200}")
     private int conversationTtlMinutes;
 
     @Value("${toolbox.agent.file.upload-dir:${java.io.tmpdir}/toolbox-agent}")

@@ -2,6 +2,7 @@ package com.toolbox.service.agent;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -141,8 +142,11 @@ public class FileManager {
     }
 
     /**
-     * 清理过期文件（由定时任务调用）
+     * 定时清理过期文件，间隔由 toolbox.agent.file.cleanup-interval-minutes 控制（默认 30 分钟）
      */
+    @Scheduled(initialDelayString = "${toolbox.agent.file.cleanup-interval-minutes:30}",
+               fixedRateString = "${toolbox.agent.file.cleanup-interval-minutes:30}",
+               timeUnit = java.util.concurrent.TimeUnit.MINUTES)
     public void cleanup() {
         File dir = uploadDir.toFile();
         File[] files = dir.listFiles();

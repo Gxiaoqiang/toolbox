@@ -1,5 +1,5 @@
 server:
-  port: 8899
+  port: 8898
 
 spring:
   application:
@@ -30,7 +30,7 @@ toolbox:
     sse:
       max-connections: 50
       heartbeat-interval-ms: 15000
-      connection-timeout-ms: 300000
+      connection-timeout-ms: 7200000
     # 对话管理
     conversation:
       max-rounds: 50
@@ -38,7 +38,7 @@ toolbox:
     # 文件管理
     file:
       upload-dir: /tmp/toolbox-agent
-      cleanup-interval-minutes: 10
+      cleanup-interval-minutes: 2400
       max-file-size: 52428800
 
 logging:

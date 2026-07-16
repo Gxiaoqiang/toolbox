@@ -10,7 +10,7 @@ export const meta: ToolMeta = {
 <template>
   <div class="flex gap-4 h-full">
     <!-- 左侧：上传区 — 始终可见 -->
-    <div class="w-2/5 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">文档文件</label>
 
       <!-- 虚线拖拽上传区 — 始终可见，选中文件后缩小 -->

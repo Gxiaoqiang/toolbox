@@ -6,6 +6,7 @@ export const meta: ToolMeta = {
   description: '将多个 PDF 文件按顺序合并为一个 PDF',
   icon: 'file-text',
   category: 'file',
+  group: 'PDF 工具包',
   requiresBackend: true,
 }
 </script>
@@ -13,7 +14,7 @@ export const meta: ToolMeta = {
 <template>
   <div class="flex gap-4 h-full">
     <!-- 左侧：上传区 + 文件列表 — 始终可见 -->
-    <div class="w-2/5 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">PDF 文件</label>
 
       <!-- 虚线拖拽上传区 — 始终可见 -->

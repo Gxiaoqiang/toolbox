@@ -23,9 +23,16 @@ cd backend && mvn clean package -DskipTests
 # 启动 (port 8899)
 cd backend && java -jar target/toolbox-1.0.0.jar
 
-# Docker 部署
-docker build -t toolbox:1.0.0 .
-docker run -d -p 8899:8899 --name toolbox toolbox:1.0.0
+# Docker 部署 (含 LibreOffice + 中文字体)
+docker build -t toolbox-lo:1.0.0 .
+
+# 导出镜像供离线服务器使用
+docker save -o toolbox-lo-1.0.0.tar toolbox-lo:1.0.0
+gzip toolbox-lo-1.0.0.tar
+
+# 离线服务器导入并启动
+docker load -i toolbox-lo-1.0.0.tar
+docker run -d --name toolbox -p 8899:8899 --restart unless-stopped toolbox-lo:1.0.0
 ```
 
 ## Architecture
@@ -122,12 +129,20 @@ GlobalExceptionHandler (@RestControllerAdvice)
 |----|------|
 | `flexmark-all` | Markdown → HTML（服务端） |
 | `docx4j-JAXB-ReferenceImpl` | AltChunk 方式嵌入 HTML 生成 DOCX |
+| `pdfbox` 3.0.3 | PDF 切分、合并、元数据处理 |
+
+### LibreOffice 配置
+
+`DocumentServiceImpl` 通过 `@Value("${toolbox.libreoffice.binary-path:soffice}")` 读取 soffice 路径。Docker 镜像基于 `eclipse-temurin:17-jre-jammy`（Ubuntu 22.04），已内置 `libreoffice-writer` + 中文字体（Noto CJK + WQY）。**不要用 Alpine 安装 LibreOffice**：缺少 .wps 过滤器且 CJK 渲染有问题。
 
 ### API 清单
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/convert/md-to-docx` | Markdown 转 DOCX 文件下载（multipart） |
+| POST | `/api/pdf/split` | PDF 切分（1 个文件，≤50MB） |
+| POST | `/api/pdf/merge` | PDF 合并（2-10 个文件，≤5MB/个） |
+| POST | `/api/document/convert-to-pdf` | 文档转 PDF（≤5 个文件，≤50MB/个，.doc/.docx/.wps） |
 
 ---
 
@@ -155,3 +170,101 @@ GlobalExceptionHandler (@RestControllerAdvice)
 3. 子代理仅允许调用 ECC 文件工具，屏蔽原生文件读写
 4. 同一会话只允许一套主线流程运行
 5. 大型项目分段执行，限定业务模块目录，不扫描全项目根目录
+
+## 编码规约(必须遵守)
+
+### 2.1 类注释
+遵循 File Header 设置。
+*   **模版内容**：
+```java
+/**
+ * @Author ${USER}
+ * @Version ${NAME}.java, v 0.1 ${YEAR}年${MONTH}月${DAY}日 ${TIME} ${USER}
+ * @Description: TODO
+ */
+```
+
+### 2.2 接口注释
+1.  说明方法作用。
+2.  说明参数（是否必填、分页限制等）。
+3.  枚举需增加 `@see`。
+4.  废弃接口需增加 `@Deprecated` 并指出替代接口。
+
+**案例**：
+```java
+/**
+ * xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ *
+ * @param nodeCode    中心仓code 必填
+ * @param solutionKey 解决方案 必填 (中心仓：centerwms-mmc-alibaba)
+ * @param isTest      测试标 (预发：1, 正式：0)
+ * @param pageSize    页大小 100 
+ * @return 
+ * @see xxxxx
+ */
+```
+
+### 2.3 方法注释
+1.  功能介绍，参数介绍。
+2.  **实现过程说明**：说明每一个步骤的作用和内容。
+3.  每个方法上都要添加注释，做好具体作用的说明
+
+**案例**：
+```java
+/**
+ * 保存指定调拨单下的支援人员
+ *
+ * @param processInstanceId         支援调拨单号
+ * @param currentSupportLaborModels 该调拨单下需要保存的支援人员
+ */
+public void saveSupportLabor(String processInstanceId, List<SupportLaborModel> currentSupportLaborModels) {
+    HumanException.throwIfOneObjIsNull(HumanErrorEnum.PARAM_IS_NULL, processInstanceId);
+
+    // 1. 数据预处理
+    // 1.1 根据调拨单号查询调拨单模型
+    SupportDocumentModel supportDocumentModel = supportDocumentQueryDomainService.getSupportDocumentModel(processInstanceId);
+
+    // 2. 参数和业务规则检查
+    // 2.1 参数检查
+    checkParam(supportDocumentModel, currentSupportLaborModels);
+    // 2.2 业务规则检查
+    checkBizRule(supportDocumentModel, currentSupportLaborModels);
+
+    // 3. 保存支援明细
+    processSaveSupportLabor(supportDocumentModel, currentSupportLaborModels);
+}
+```
+### 2.4 代码设计
+所有代码分层遵循如下的代码分层结构，
+#### 2.4.1 代码分层
+        1.网关层 负责切面的拦截或者server的filter 如果有
+        2.接口层 XxxxController 接收请求和对外输出，输出对象统一为VO对象。封装采用Spirng的ResponseEntity进行封装。接收的参数统一以xxxRequest进行命名。主要做基础参数校验，不要有太多的逻辑处理。
+        3.应用层 XxxxxBizService领域层的编排、事件订阅和事件发布。rpc的应用服务调用。
+        4.领域层 XxxxDomainService 核心的业务逻辑都在领域层
+        5.仓储层 隔离持久化和业务逻辑之间的耦合。接口放到领域层中，持久化层依赖领域层的仓储的接口。依赖导致。
+        6.持久化层 Mapper或者Dao如果存在需要存储的则进行放到该层级中。
+      如果只是简单的查询 可以直接应用层调用仓储层进行，使用CQRS的方式。不比严格遵守代码分层。
+
+#### 2.4.2 模型转换
+        1.所有的对象转换使用MapStruct组件进行转换。转换的方法使用XxxxConvert
+        2.所有的请求都已XxxxRequest进行命名。所有的Controller的输出使用XxxxxVO进行命名。
+        3.xxxRequest          -->          xxxDO      --->    xxxPO
+          接口层 应用层(Request->DO)     领域层 仓储层(DO->PO)   持久化层
+          xxxRequest          <--          xxxDO      <---    xxxPO
+          接口层 应用层(VO<-DO)     领域层 仓储层(DO<-PO)   持久化层 或
+          接口层 应用层                   仓储层(VO<-PO)            持久化层 或
+#### 2.4.3 代码划分
+        不同的功能按照领域进行划分，可以先试用package的方式，如果后面功能比较多可以采用子module的方式。
+        
+### 2.5 日志打印
+    志打印要把基础的类方法等信息打印出来,使用slf4j方式。，不要使用中文描述，要使用英文描述。
+ ```
+ log.info("[className#methodName]  xxxxxx {}",xxxx);
+ log.error("[className#methodName]  xxxxxx process exception  {},params={}",ex,ex.getMessage,xxxx);
+ 
+```
+### 2.6 代码通用要求
+    禁止代码中使用魔法值。
+    每个方法上都要添加注释，做好具体作用的说明。参考 2.3 方法注释、
+    每个类上也要做好注释。参考2.1 类注释、2.2 接口注释
+    

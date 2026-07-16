@@ -2,6 +2,7 @@ package com.toolbox;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 工具箱应用启动类
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @since 2026-07-01
  */
 @SpringBootApplication
+@EnableScheduling
 public class ToolboxApplication {
 
     public static void main(String[] args) {

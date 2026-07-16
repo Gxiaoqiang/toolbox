@@ -34,39 +34,74 @@
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "command": "if echo \"$FILE_PATH\" | grep -qE '/frontend/.*\\.(vue|ts|js|css)$'; then cd frontend && npx prettier --write \"$FILE_PATH\" 2>/dev/null; fi",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$FILE_PATH\" | grep -qE '/frontend/.*\\.(vue|ts|js|css)$'; then cd frontend && npx prettier --write \"$FILE_PATH\" 2>/dev/null; fi"
+          }
+        ],
         "description": "[Format] Prettier auto-format for .vue/.ts/.js/.css files"
       },
       {
         "matcher": "Write|Edit",
-        "command": "if echo \"$FILE_PATH\" | grep -qE '/frontend/.*\\.(vue|ts)$'; then cd frontend && timeout 60 npx vue-tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsc-hook.tsbuildinfo 2>&1 | head -30; fi",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$FILE_PATH\" | grep -qE '/frontend/.*\\.(vue|ts)$'; then cd frontend && timeout 60 npx vue-tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsc-hook.tsbuildinfo 2>&1 | head -30; fi"
+          }
+        ],
         "description": "[TypeCheck] Incremental vue-tsc for .vue/.ts files (timeout 60s, first 30 error lines)"
       },
       {
         "matcher": "Write|Edit",
-        "command": "if echo \"$FILE_PATH\" | grep -qE '/backend/.*\\.java$'; then cd backend && mvn compile -q 2>&1 | tail -20; fi",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$FILE_PATH\" | grep -qE '/backend/.*\\.java$'; then cd backend && mvn compile -q 2>&1 | tail -20; fi"
+          }
+        ],
         "description": "[Compile] mvn compile check for .java files (quiet mode, last 20 lines)"
       },
       {
         "matcher": "Write|Edit",
-        "command": "if echo \"$FILE_PATH\" | grep -qE '\\.(ts|vue)$'; then if grep -qn 'console\\.log' \"$FILE_PATH\" 2>/dev/null; then echo '[HOOK] ⚠ console.log found — remove before commit' >&2; fi; fi; true",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$FILE_PATH\" | grep -qE '\\.(ts|vue)$'; then if grep -qn 'console\\.log' \"$FILE_PATH\" 2>/dev/null; then echo '[HOOK] ⚠ console.log found — remove before commit' >&2; fi; fi; true"
+          }
+        ],
         "description": "[Lint] Warn if console.log found in .ts/.vue files (never blocks)"
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Write",
-        "command": "if echo \"$FILE_PATH\" | grep -qE '\\.java$'; then node -e \"const c=[];process.stdin.on('data',d=>c.push(d));process.stdin.on('end',()=>{const r=Buffer.concat(c).toString();const j=JSON.parse(r);const n=(j.tool_input?.content||'').split('\\n').length;if(n>800)process.stderr.write('[HOOK] ⚠ Java file exceeds 800 lines ('+n+'), consider splitting\\n');process.stdout.write(r);});else cat; fi",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$FILE_PATH\" | grep -qE '\\.java$'; then node -e \"const c=[];process.stdin.on('data',d=>c.push(d));process.stdin.on('end',()=>{const r=Buffer.concat(c).toString();const j=JSON.parse(r);const n=(j.tool_input?.content||'').split('\\n').length;if(n>800)process.stderr.write('[HOOK] ⚠ Java file exceeds 800 lines ('+n+'), consider splitting\\n');process.stdout.write(r);});else cat; fi"
+          }
+        ],
         "description": "[SizeGuard] Warn if Java file exceeds 800 lines (soft warning, never blocks, non-Java pass through)"
       }
     ],
     "Stop": [
       {
-        "command": "cd backend && mvn test -q 2>&1 | tail -30",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd backend && mvn test -q 2>&1 | tail -30"
+          }
+        ],
         "description": "[Test] Run backend unit tests at session end"
       },
       {
-        "command": "cd frontend && npx vue-tsc --noEmit 2>&1 | head -20; true",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd frontend && npx vue-tsc --noEmit 2>&1 | head -20; true"
+          }
+        ],
         "description": "[TypeCheck] Full frontend type-check at session end (informational)"
       }
     ]

@@ -18,7 +18,7 @@ class DocumentServiceImplTest {
 
     @BeforeAll
     static void setUp() {
-        service = new DocumentServiceImpl();
+        service = new DocumentServiceImpl("soffice", 10);
         libreOfficeAvailable = service.isServiceAvailable();
     }
 

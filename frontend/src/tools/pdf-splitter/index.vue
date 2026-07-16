@@ -1,7 +1,7 @@
 <template>
   <div class="flex gap-4 h-full">
     <!-- 左侧：上传区 -->
-    <div class="w-2/5 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">PDF 文件</label>
 
       <!-- 拖拽上传区域 -->
@@ -172,6 +172,7 @@ export const meta: ToolMeta = {
   description: 'PDF 逐页拆分、按页码范围、每 N 页拆分',
   icon: 'file-text',
   category: 'file',
+  group: 'PDF 工具包',
   requiresBackend: true,
 }
 </script>

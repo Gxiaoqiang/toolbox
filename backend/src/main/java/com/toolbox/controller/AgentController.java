@@ -52,6 +52,12 @@ public class AgentController {
         this.fileManager = fileManager;
         this.conversationManager = conversationManager;
         this.docAgent = docAgent;
+
+        // SSE 连接断开时自动清理对应对话数据，防止内存泄漏
+        this.sseConnectionManager.setOnDisconnect(conversationId -> {
+            conversationManager.delete(conversationId);
+            log.info("[AgentController] cleaned up conversation on disconnect: {}", conversationId);
+        });
     }
 
     /**
@@ -69,10 +75,18 @@ public class AgentController {
 
         SseEmitter emitter = new SseEmitter(sseConnectionManager.getConnectionTimeoutMs());
 
+        // 新对话: 提前创建 conversation，确保 SSE 断开时能用真实 ID 清理数据
+        boolean isNewConversation = (conversationId == null || conversationId.isBlank());
+        if (isNewConversation) {
+            conversationId = conversationManager.create();
+        }
+
         // 注册连接（并发控制 + 单 conversation 互斥）
-        String effectiveConvId = conversationId != null ? conversationId
-                : "new-" + System.currentTimeMillis();
-        if (!sseConnectionManager.register(effectiveConvId, emitter)) {
+        if (!sseConnectionManager.register(conversationId, emitter)) {
+            // 注册失败：如果是刚创建的新对话，回滚清理
+            if (isNewConversation) {
+                conversationManager.delete(conversationId);
+            }
             try {
                 emitter.send(SseEmitter.event()
                         .name("error")
@@ -124,9 +138,9 @@ public class AgentController {
                 }
             } finally {
                 heartbeat.shutdown();
-                sseConnectionManager.unregister(effectiveConvId);
+                sseConnectionManager.unregister(finalConvId);
             }
-        }, "agent-chat-" + effectiveConvId).start();
+        }, "agent-chat-" + finalConvId).start();
 
         return emitter;
     }

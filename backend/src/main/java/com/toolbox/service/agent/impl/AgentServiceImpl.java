@@ -54,20 +54,8 @@ public class AgentServiceImpl implements AgentService {
 
         // 2. 文件处理: 存储用户上传的文件
         List<String> fileIds = new ArrayList<>();
-        if (files != null) {
-            for (MultipartFile f : files) {
-                if (f != null && !f.isEmpty()) {
-                    try {
-                        String fileId = fileManager.store(f);
-                        fileIds.add(fileId);
-                        log.info("[AgentServiceImpl#handle] file stored: {} → {}",
-                                f.getOriginalFilename(), fileId);
-                    } catch (Exception e) {
-                        eventConsumer.accept(ChatEvent.error(errorClassifier.classify(e)));
-                        return conversationId;
-                    }
-                }
-            }
+        if (files != null && fileIds.size() > 0) {
+            if (processFile(files, conversationId, eventConsumer, fileIds)) return conversationId;
         }
 
         // 3. 先构建历史（当前消息尚未追加，避免 LLM 看到重复的用户消息）
@@ -131,6 +119,23 @@ public class AgentServiceImpl implements AgentService {
         log.info("[AgentServiceImpl#handle] sending done event");
         eventConsumer.accept(ChatEvent.done());
         return conversationId;
+    }
+
+    private boolean processFile(MultipartFile[] files, String conversationId, Consumer<ChatEvent> eventConsumer, List<String> fileIds) {
+        for (MultipartFile f : files) {
+            if (f != null && !f.isEmpty()) {
+                try {
+                    String fileId = fileManager.store(f);
+                    fileIds.add(fileId);
+                    log.info("[AgentServiceImpl#handle] file stored: {} → {}",
+                            f.getOriginalFilename(), fileId);
+                } catch (Exception e) {
+                    eventConsumer.accept(ChatEvent.error(errorClassifier.classify(e)));
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
