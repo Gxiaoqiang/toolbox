@@ -18,8 +18,14 @@ Thumbs.db
 # Logs
 *.log
 
-# Claude (project harness)
+# Claude (project harness) — 仅提交 .claude/rules/ 编码规范，其余为工具配置/中间产物
+.claude/settings.json
 .claude/settings.local.json
+.claude/workflows/
+.claude/agents/
+.claude/plans/
+.claude/projects/
+.claude/memory/
 
 # Superpowers internal
 .superpowers/
@@ -28,3 +34,8 @@ docs/superpowers/
 # Temp
 /tmp/
 *.tmp
+*.tar.gz
+
+# Claude 中间产物
+HANDOFF.md
+test-iframe.html
