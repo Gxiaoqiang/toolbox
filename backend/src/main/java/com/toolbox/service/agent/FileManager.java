@@ -104,17 +104,24 @@ public class FileManager {
     }
 
     /**
-     * 加载存储的文件
+     * 加载存储的文件（容错：LLM 可能去掉扩展名，自动匹配目录中同前缀的文件）
      *
-     * @param fileId 文件标识
+     * @param fileId 文件标识（可能不含扩展名）
      * @return File 对象
      */
     public File load(String fileId) {
         File file = uploadDir.resolve(fileId).toFile();
-        if (!file.exists()) {
-            throw new IllegalArgumentException("文件不存在或已过期: " + fileId);
+        if (file.exists()) {
+            return file;
         }
-        return file;
+        // LLM 可能把文件扩展名丢了（如 d34fe0f6.docx → d34fe0f6），在目录中查找匹配
+        File[] candidates = uploadDir.toFile()
+                .listFiles((dir, name) -> name.startsWith(fileId));
+        if (candidates != null && candidates.length > 0) {
+            log.info("[FileManager#load] fuzzy match: {} → {}", fileId, candidates[0].getName());
+            return candidates[0];
+        }
+        throw new IllegalArgumentException("文件不存在或已过期: " + fileId);
     }
 
     /**
