@@ -70,14 +70,14 @@ public class AgentServiceImpl implements AgentService {
             }
         }
 
-        // 3. 追加用户消息到对话历史
+        // 3. 先构建历史（当前消息尚未追加，避免 LLM 看到重复的用户消息）
+        List<Msg> history = buildHistory(conversationId);
+
+        // 4. 追加用户消息到对话历史（工具调用完成后才能 correct 地保留）
         conversationManager.appendUserMessage(conversationId, message, fileIds);
 
-        // 4. 构建 Agent 输入（含文件上下文）
+        // 5. 构建 Agent 输入（含文件上下文）
         String agentInput = buildAgentInput(message, fileIds);
-
-        // 5. 构建历史消息列表（最近 10 轮）
-        List<Msg> history = buildHistory(conversationId);
 
         // 6. 运行 ReActAgent
         log.info("[AgentServiceImpl#handle] sending thinking event, input={}", agentInput);

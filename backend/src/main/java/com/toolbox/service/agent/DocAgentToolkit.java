@@ -63,11 +63,23 @@ public class DocAgentToolkit {
     // ===== 辅助方法 =====
 
     private byte[] loadFile(String fileId) {
-        File file = fileManager.load(fileId);
+        log.info("[DocAgentToolkit#loadFile] loading fileId={}", fileId);
         try {
-            return Files.readAllBytes(file.toPath());
-        } catch (IOException e) {
-            throw new RuntimeException("无法读取文件: " + fileId, e);
+            File file = fileManager.load(fileId);
+            byte[] data = Files.readAllBytes(file.toPath());
+            log.info("[DocAgentToolkit#loadFile] loaded {} bytes from {}", data.length, fileId);
+            return data;
+        } catch (Exception e) {
+            // 列出目录中实际存在的文件，帮助诊断 LLM 是否传错了 fileId
+            File dir = fileManager.getUploadDir().toFile();
+            File[] files = dir.listFiles();
+            String available = files != null && files.length > 0
+                ? " 目录中现有文件: " + java.util.Arrays.stream(files).limit(10)
+                    .map(File::getName).collect(java.util.stream.Collectors.joining(", "))
+                : " (目录为空)";
+            log.error("[DocAgentToolkit#loadFile] file not found: fileId={}, uploadDir={}{}",
+                fileId, dir.getAbsolutePath(), available);
+            throw new RuntimeException("文件不存在或已过期: " + fileId, e);
         }
     }
 
