@@ -164,7 +164,7 @@ export const meta: ToolMeta = {
 
             <!-- 缩略图区 -->
             <div
-              class="flex-1 flex items-center justify-center p-2"
+              class="flex items-center justify-center p-2 overflow-hidden"
               :style="thumbnailStyle(element)"
             >
               <img
@@ -174,7 +174,6 @@ export const meta: ToolMeta = {
                 :style="{
                   transform: element.userRotation ? `rotate(${element.userRotation}deg)` : undefined,
                 }"
-                loading="lazy"
               />
               <span v-else-if="element.blank" class="text-2xl" style="color: var(--text-muted)">空白页</span>
               <svg v-else class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none">

@@ -166,27 +166,20 @@ export function usePdfArranger() {
           continue
         }
 
-        // 渲染前 50 页缩略图（其余走 IntersectionObserver 懒渲染）
-        const toRender = Math.min(item.pages, 50)
-        for (let p = 1; p <= toRender; p++) {
-          const dataUrl = await renderThumbnail(buffer, p, 0.25)
+        // 渲染每一页缩略图，逐页 try/catch 防止单页失败导致整文件被拒
+        for (let p = 1; p <= item.pages; p++) {
+          let dataUrl = ''
+          try {
+            dataUrl = await renderThumbnail(buffer, p, 0.25)
+          } catch (thumbErr) {
+            console.error(`[usePdfArranger] render page ${p} failed:`, thumbErr)
+            // 单页渲染失败不阻塞其他页，缩略图留空显示 loading 态
+          }
           pages.value.push({
             uid: nextUid(),
             fileIndex,
             filePage: p,
             thumbnail: dataUrl,
-            userRotation: 0,
-            width: pageInfos[p - 1].width,
-            height: pageInfos[p - 1].height,
-            blank: false,
-          })
-        }
-        for (let p = toRender + 1; p <= item.pages; p++) {
-          pages.value.push({
-            uid: nextUid(),
-            fileIndex,
-            filePage: p,
-            thumbnail: '',
             userRotation: 0,
             width: pageInfos[p - 1].width,
             height: pageInfos[p - 1].height,
