@@ -61,6 +61,20 @@ public enum ErrorCodeEnum {
     /** PDF 压缩处理失败 */
     PDF_COMPRESS_PROCESS_ERROR(500, "PDF 压缩失败，请稍后重试"),
 
+    // ===== PDF 编排 =====
+    /** 编排计划为空 */
+    PDF_ARRANGE_PLAN_EMPTY(400, "编排计划不能为空"),
+    /** 编排计划条目过多 */
+    PDF_ARRANGE_PLAN_TOO_LARGE(400, "编排计划条目不能超过 300"),
+    /** 编排计划文件下标无效 */
+    PDF_ARRANGE_PLAN_FILE_INDEX_INVALID(400, "编排计划引用了不存在的源文件"),
+    /** 编排计划页码越界 */
+    PDF_ARRANGE_PLAN_PAGE_OUT_OF_RANGE(400, "页码范围超出文件实际页数"),
+    /** 编排计划旋转度数无效 */
+    PDF_ARRANGE_PLAN_ROTATE_INVALID(400, "旋转度数仅支持 90 / 180 / 270"),
+    /** PDF 编排处理失败 */
+    PDF_ARRANGE_PROCESS_ERROR(500, "PDF 编排失败，请稍后重试"),
+
     // ===== Agent 文档处理助手 =====
     /** Agent LLM 调用超时 */
     AGENT_LLM_TIMEOUT(500, "AI 服务响应超时，请稍后重试"),
