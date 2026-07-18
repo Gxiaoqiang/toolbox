@@ -21,7 +21,9 @@ export interface PageInfo {
  * 获取 PDF 所有页面的尺寸和旋转信息（不含渲染）。
  */
 export async function getPageInfos(data: ArrayBuffer): Promise<PageInfo[]> {
-  const loadingTask = pdfjsLib.getDocument({ data })
+  // slice(0) 复制 ArrayBuffer——pdfjs getDocument 会将 buffer 转移到 Worker，
+// 后续调用若复用同一 buffer 会触发 "detached ArrayBuffer" 错误
+const loadingTask = pdfjsLib.getDocument({ data: data.slice(0) })
   const pdf = await loadingTask.promise
 
   const infos: PageInfo[] = []
@@ -53,7 +55,9 @@ export async function renderThumbnail(
   page: number,
   scale: number = 0.25
 ): Promise<string> {
-  const loadingTask = pdfjsLib.getDocument({ data })
+  // slice(0) 复制 ArrayBuffer——pdfjs getDocument 会将 buffer 转移到 Worker，
+// 后续调用若复用同一 buffer 会触发 "detached ArrayBuffer" 错误
+const loadingTask = pdfjsLib.getDocument({ data: data.slice(0) })
   const pdf = await loadingTask.promise
 
   const pdfPage = await pdf.getPage(page)
