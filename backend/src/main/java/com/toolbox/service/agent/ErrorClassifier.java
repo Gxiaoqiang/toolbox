@@ -60,7 +60,7 @@ public class ErrorClassifier {
         }
 
         // 系统层 — 兜底
-        if (msg.contains("timeout") || msg.contains("超时")) {
+        if (msg.contains("timeout") || msg.contains("timed out") || msg.contains("超时")) {
             log.error("[ErrorClassifier#classify] LLM timeout or processing timeout");
             return "AI 服务响应超时，请稍后重试。";
         }
