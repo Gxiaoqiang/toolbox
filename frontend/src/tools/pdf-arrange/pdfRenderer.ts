@@ -1,8 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist'
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.js?url'
 
-// 设置 worker URL——Vite 下通过 ?url import 获取正确的打包路径
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+// pdfjs-dist v6 worker 使用 CDN（避免 Rollup 无法解析 .mjs 的 ?url import）
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 export interface PageInfo {
   /** 页码（1-based） */
