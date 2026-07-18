@@ -10,6 +10,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import java.util.List;
  * @author toolbox
  * @since 2026-07-18
  */
+@Service
 public class PdfArrangeServiceImpl implements PdfArrangeService {
 
     private static final Logger log = LoggerFactory.getLogger(PdfArrangeServiceImpl.class);
