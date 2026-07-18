@@ -1,7 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist'
 
-// pdfjs-dist v6 worker 使用 CDN（避免 Rollup 无法解析 .mjs 的 ?url import）
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+// Vite 原生支持的静态资源 URL 解析——避免 CDN 跨域问题和离线不可用
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString()
 
 export interface PageInfo {
   /** 页码（1-based） */

@@ -193,8 +193,17 @@ export function usePdfArranger() {
             blank: false,
           })
         }
-      } catch (_e) {
-        item.error = `${f.name} 无法读取（已加密或损坏），请修复或移除该文件后再继续`
+      } catch (e: unknown) {
+        console.error('[usePdfArranger] failed to load PDF:', f.name, e)
+        const msg = e instanceof Error ? e.message : String(e)
+        // 区分加密/损坏 vs 其他错误（如 worker 加载失败）
+        if (msg.includes('encrypt') || msg.includes('password') || msg.includes('Invalid PDF')) {
+          item.error = `${f.name} 无法读取（已加密或损坏），请修复或移除该文件后再继续`
+        } else if (msg.includes('worker') || msg.includes('Worker')) {
+          item.error = `${f.name} 加载失败：PDF 渲染引擎未就绪，请刷新页面后重试`
+        } else {
+          item.error = `${f.name} 无法读取（${msg.slice(0, 80)}），请修复或移除该文件后再继续`
+        }
         item.loading = false
         toastError(item.error)
       }
