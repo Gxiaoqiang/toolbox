@@ -115,7 +115,7 @@ export const meta: ToolMeta = {
       </div>
 
       <!-- vuedraggable 网格 -->
-      <draggable
+      <VueDraggable
         v-else
         v-model="pages"
         :disabled="processing"
@@ -216,7 +216,7 @@ export const meta: ToolMeta = {
             </div>
           </div>
         </template>
-      </draggable>
+      </VueDraggable>
     </div>
 
     <input
@@ -232,7 +232,7 @@ export const meta: ToolMeta = {
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import draggable from 'vuedraggable'
+import { VueDraggable } from 'vue-draggable-plus'
 import { usePdfArranger, type PageEntry } from './usePdfArranger'
 
 defineOptions({ inheritAttrs: false })
