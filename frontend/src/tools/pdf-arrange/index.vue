@@ -93,14 +93,14 @@ export const meta: ToolMeta = {
 
     <!-- ===== 页面网格画布 ===== -->
     <div
-      class="flex-1 overflow-y-auto"
+      class="flex-1 overflow-y-auto relative"
       :class="pageCount === 0 && !processing ? 'flex items-center justify-center' : ''"
     >
       <!-- 空态 -->
       <div
         v-if="pageCount === 0 && !processing"
-        class="border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 w-full max-w-lg mx-auto cursor-pointer"
-        style="border-color: var(--border-color); background: var(--bg-card); min-height: 280px"
+        class="absolute inset-0 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer"
+        style="border-color: var(--border-color); background: var(--bg-card)"
         @click="triggerFileInput"
         @dragover.prevent
         @drop.prevent="handleDrop"
@@ -114,9 +114,8 @@ export const meta: ToolMeta = {
         </div>
       </div>
 
-      <!-- vuedraggable 网格 -->
+      <!-- VueDraggable 网格 — 始终挂载，空数组时不可见 -->
       <VueDraggable
-        v-else
         v-model="pages"
         :disabled="processing"
         item-key="uid"
@@ -124,6 +123,7 @@ export const meta: ToolMeta = {
         :animation="150"
         ghost-class="opacity-40"
         class="grid gap-3"
+        :class="{ 'invisible': pageCount === 0 }"
         style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))"
       >
         <template #item="{ element, index }">
