@@ -170,7 +170,7 @@ export function usePdfArranger() {
         for (let p = 1; p <= item.pages; p++) {
           let dataUrl = ''
           try {
-            dataUrl = await renderThumbnail(buffer, p, 0.25)
+            dataUrl = await renderThumbnail(buffer, p, 0.15)
           } catch (thumbErr) {
             console.error(`[usePdfArranger] render page ${p} failed:`, thumbErr)
             // 单页渲染失败不阻塞其他页，缩略图留空显示 loading 态

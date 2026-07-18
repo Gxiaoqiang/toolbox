@@ -122,11 +122,11 @@ export const meta: ToolMeta = {
         item-key="uid"
         :animation="150"
         ghost-class="opacity-40"
-        style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))"
+        class="flex flex-wrap gap-2"
       >
         <template #item="{ element, index }">
           <div
-            class="group relative flex flex-col rounded-lg border transition-shadow hover:shadow-md"
+            class="group relative flex flex-col rounded-lg border transition-shadow hover:shadow-md w-[130px]"
             :style="{
               borderColor: errorBorderColor(element),
               background: 'var(--bg-card)',
