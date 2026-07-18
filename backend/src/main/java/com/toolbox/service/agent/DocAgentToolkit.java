@@ -1,17 +1,22 @@
 package com.toolbox.service.agent;
 
+import com.toolbox.exception.BusinessException;
 import com.toolbox.service.document.DocumentService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
+import com.toolbox.service.store.FileStore;
+import com.toolbox.model.common.PdfArrangeItem;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agentscope.core.tool.Tool;
 import io.agentscope.core.tool.ToolParam;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +38,10 @@ public class DocAgentToolkit {
     private final PdfToImageService pdfToImageService;
     private final DocumentService documentService;
     private final MarkdownService markdownService;
-    private final FileManager fileManager;
+    private final FileStore fileStore;
+
+    private final PdfArrangeService pdfArrangeService;
+    private final ObjectMapper objectMapper;
 
     /** 最后一次工具调用的产物信息 */
     private volatile ToolResult lastResult;
@@ -41,13 +49,16 @@ public class DocAgentToolkit {
     public DocAgentToolkit(PdfService pdfService, PdfCompressService pdfCompressService,
                            PdfToImageService pdfToImageService,
                            DocumentService documentService, MarkdownService markdownService,
-                           FileManager fileManager) {
+                           FileStore fileStore, PdfArrangeService pdfArrangeService,
+                           ObjectMapper objectMapper) {
         this.pdfService = pdfService;
         this.pdfCompressService = pdfCompressService;
         this.pdfToImageService = pdfToImageService;
         this.documentService = documentService;
         this.markdownService = markdownService;
-        this.fileManager = fileManager;
+        this.fileStore = fileStore;
+        this.pdfArrangeService = pdfArrangeService;
+        this.objectMapper = objectMapper;
     }
 
     /** 获取最后一次工具调用的产物（AgentService 用于推送 result SSE 事件） */
@@ -65,20 +76,11 @@ public class DocAgentToolkit {
     private byte[] loadFile(String fileId) {
         log.info("[DocAgentToolkit#loadFile] loading fileId={}", fileId);
         try {
-            File file = fileManager.load(fileId);
-            byte[] data = Files.readAllBytes(file.toPath());
+            byte[] data = fileStore.load(fileId);
             log.info("[DocAgentToolkit#loadFile] loaded {} bytes from {}", data.length, fileId);
             return data;
         } catch (Exception e) {
-            // 列出目录中实际存在的文件，帮助诊断 LLM 是否传错了 fileId
-            File dir = fileManager.getUploadDir().toFile();
-            File[] files = dir.listFiles();
-            String available = files != null && files.length > 0
-                ? " 目录中现有文件: " + java.util.Arrays.stream(files).limit(10)
-                    .map(File::getName).collect(java.util.stream.Collectors.joining(", "))
-                : " (目录为空)";
-            log.error("[DocAgentToolkit#loadFile] file not found: fileId={}, uploadDir={}{}",
-                fileId, dir.getAbsolutePath(), available);
+            log.error("[DocAgentToolkit#loadFile] file not found: fileId={}", fileId, e);
             throw new RuntimeException("文件不存在或已过期: " + fileId, e);
         }
     }
@@ -129,7 +131,7 @@ public class DocAgentToolkit {
         byte[] result = pdfService.splitPdf(pdfBytes, baseName + ".pdf", mode,
                 pages != null ? pages : "", everyN, true);
 
-        String resultId = fileManager.storeBytes(result, baseName + "_split.zip");
+        String resultId = fileStore.store(result, baseName + "_split.zip");
         lastResult = new ToolResult(resultId, baseName + "_split.zip", result.length);
         int pageCount = estimatePageCount(pdfBytes);
         return String.format("切分完成！%d 页 PDF 已拆分, 文件 ID: %s, 大小: %.1fMB",
@@ -157,7 +159,7 @@ public class DocAgentToolkit {
         }
 
         byte[] result = pdfService.mergePdf(bytesList, true);
-        String resultId = fileManager.storeBytes(result, "merged.pdf");
+        String resultId = fileStore.store(result, "merged.pdf");
         lastResult = new ToolResult(resultId, "merged.pdf", result.length);
         return String.format("合并完成！%d 个文件 → 1 个 PDF, 文件 ID: %s, 大小: %.1fMB",
                 ids.length, resultId, result.length / (1024.0 * 1024.0));
@@ -181,7 +183,7 @@ public class DocAgentToolkit {
         String baseName = extractBaseName(fileId);
         PdfCompressResult result = pdfCompressService.compress(pdfBytes, baseName + ".pdf", level);
 
-        String resultId = fileManager.storeBytes(result.getData(), baseName + "_compressed.pdf");
+        String resultId = fileStore.store(result.getData(), baseName + "_compressed.pdf");
         lastResult = new ToolResult(resultId, baseName + "_compressed.pdf", result.getData().length);
         return String.format("压缩完成！%.1fMB → %.1fMB (%.0f%%), 文件 ID: %s",
                 result.getOriginalSize() / (1024.0 * 1024.0),
@@ -216,8 +218,10 @@ public class DocAgentToolkit {
                 pdfBytes, baseName + ".pdf", dpi, format, quality,
                 (pageRange != null && !pageRange.isBlank()) ? pageRange : null);
 
-        String resultId = fileManager.storeBytes(result.getData(), baseName + "_images.zip");
-        lastResult = new ToolResult(resultId, baseName + "_images.zip", result.getData().length);
+        // 单页用 PdfToImageResult 返回的正确文件名（如 xxx.png），多页才是 .zip
+        String resultFileName = result.getDownloadFilename();
+        String resultId = fileStore.store(result.getData(), resultFileName);
+        lastResult = new ToolResult(resultId, resultFileName, result.getData().length);
         return String.format("转换完成！格式: %s, DPI: %d, 文件 ID: %s, 大小: %.1fMB",
                 format.toUpperCase(), dpi, resultId,
                 result.getData().length / (1024.0 * 1024.0));
@@ -241,7 +245,7 @@ public class DocAgentToolkit {
         try {
             byte[] result = documentService.convertToPdf(docBytes, baseName + ext);
 
-            String resultId = fileManager.storeBytes(result, baseName + ".pdf");
+            String resultId = fileStore.store(result, baseName + ".pdf");
             lastResult = new ToolResult(resultId, baseName + ".pdf", result.length);
             return String.format("转换完成！文件 ID: %s, 大小: %.1fMB",
                     resultId, result.length / (1024.0 * 1024.0));
@@ -266,9 +270,98 @@ public class DocAgentToolkit {
                 markdownContent.length());
 
         byte[] result = markdownService.convertMarkdownToDocx(markdownContent);
-        String resultId = fileManager.storeBytes(result, outputName + ".docx");
+        String resultId = fileStore.store(result, outputName + ".docx");
         lastResult = new ToolResult(resultId, outputName + ".docx", result.length);
         return String.format("转换完成！%d 字符 → DOCX, 文件 ID: %s, 大小: %.1fKB",
                 markdownContent.length(), resultId, result.length / 1024.0);
+    }
+
+    @Tool(name = "pdfInfo", description = "查询 PDF 文件的页数和每页尺寸。用于编排前确认每个文件的页码范围，生成编排 plan 时引用")
+    public String pdfInfo(
+            @ToolParam(name = "fileId", required = true, description = "上传的 PDF 文件 ID")
+            String fileId) {
+
+        log.info("[DocAgentToolkit#pdfInfo] querying fileId={}", fileId);
+
+        byte[] pdfBytes = loadFile(fileId);
+
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
+            int pages = doc.getNumberOfPages();
+            StringBuilder sb = new StringBuilder();
+            sb.append(String.format("文件: %s, 总页数: %d\n", fileId, pages));
+            for (int i = 0; i < pages; i++) {
+                PDPage p = doc.getPage(i);
+                PDRectangle box = p.getMediaBox();
+                int rot = p.getRotation();
+                sb.append(String.format("  第%d页: %.0f×%.0f pt, 旋转=%d°\n",
+                        i + 1, box.getWidth(), box.getHeight(), rot));
+            }
+            return sb.toString().trim();
+        } catch (Exception e) {
+            log.error("[DocAgentToolkit#pdfInfo] failed to query pdf info: fileId={}", fileId, e);
+            return "错误: 无法读取该 PDF 文件的信息，文件可能已损坏或加密。";
+        }
+    }
+
+    @Tool(name = "pdfArrange",
+            description = "PDF 页面编排：从多个 PDF 中选取指定页面，重新排序并可旋转，最终合并为一个新 PDF。先调用 pdfInfo 获取每文件页数，再生成 plan")
+    public String pdfArrange(
+            @ToolParam(name = "fileIds", required = true,
+                    description = "源文件 ID 列表，逗号分隔，如 'abc.pdf,def.pdf'。plan 中的 file = 此数组下标（0-based）")
+            String fileIds,
+            @ToolParam(name = "plan", required = true,
+                    description = "编排计划 JSON 数组。每项: {\"file\":文件下标,\"page\":页码}\n"
+                            + "旋转: 加 \"rotate\":90/180/270\n"
+                            + "空白页: {\"blank\":true}\n"
+                            + "空白页尺寸(可选): {\"blank\":true,\"width\":595,\"height\":842}\n"
+                            + "复制页 = 同一 {\"file\",\"page\"} 出现两次\n"
+                            + "示例: [{\"file\":0,\"page\":1},{\"file\":0,\"page\":3,\"rotate\":90},{\"blank\":true},{\"file\":1,\"page\":2}]")
+            String plan) {
+
+        String[] ids = fileIds.split(",");
+        if (ids.length < 1 || ids.length > 10) {
+            return "错误: 需要 1-10 个 PDF 文件，当前 " + ids.length + " 个";
+        }
+
+        log.info("[DocAgentToolkit#pdfArrange] {} files", ids.length);
+
+        List<byte[]> pdfBytesList = new ArrayList<>();
+        List<Integer> pageCounts = new ArrayList<>();
+        for (String id : ids) {
+            byte[] bytes = loadFile(id.trim());
+            pdfBytesList.add(bytes);
+            pageCounts.add(estimatePageCount(bytes));
+        }
+
+        List<PdfArrangeItem> planItems;
+        try {
+            planItems = objectMapper.readValue(plan,
+                    new TypeReference<List<PdfArrangeItem>>() {});
+        } catch (Exception e) {
+            return "错误: plan JSON 格式不正确，请检查语法。示例: "
+                    + "[{\"file\":0,\"page\":1},{\"file\":1,\"page\":2}]";
+        }
+
+        try {
+            byte[] result = pdfArrangeService.arrange(pdfBytesList, planItems);
+
+            String resultId = fileStore.store(result, "arranged.pdf");
+            lastResult = new ToolResult(resultId, "arranged.pdf", result.length);
+            return String.format("编排完成！%d 个源文件 → %d 页 PDF, 文件 ID: %s, 大小: %.1fMB",
+                    ids.length, planItems.size(), resultId,
+                    result.length / (1024.0 * 1024.0));
+
+        } catch (BusinessException e) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("编排失败: ").append(e.getMessage()).append("\n\n");
+            sb.append("各文件页数参考:\n");
+            for (int i = 0; i < ids.length; i++) {
+                sb.append("  file=").append(i)
+                        .append(" (").append(ids[i].trim()).append(")")
+                        .append(": ").append(pageCounts.get(i)).append(" 页\n");
+            }
+            sb.append("\n请根据以上各文件实际页数修正 plan 中的 page 值后重试。");
+            return sb.toString();
+        }
     }
 }

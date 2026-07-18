@@ -1,12 +1,16 @@
 package com.toolbox.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toolbox.model.agent.ConversationStore;
-import com.toolbox.model.agent.InMemoryConversationStore;
+import com.toolbox.model.agent.impl.InMemoryConversationStore;
+import com.toolbox.model.agent.impl.RedisConversationStore;
 import com.toolbox.service.agent.*;
-import com.toolbox.service.agent.impl.AgentServiceImpl;
+import com.toolbox.service.agent.impl.*;
 import com.toolbox.service.document.DocumentService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
+import com.toolbox.service.store.FileStore;
+import com.toolbox.service.store.impl.LocalFileStore;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.tool.Toolkit;
@@ -15,13 +19,18 @@ import io.agentscope.extensions.model.openai.OpenAIChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * AgentScope Bean 配置 — 组装 Agent 所需全部组件
@@ -69,22 +78,86 @@ public class DocAgentConfig {
     @Value("${toolbox.agent.file.max-file-size:52428800}")
     private long fileMaxSize;
 
-    // ===== 基础设施 Beans =====
+    @Value("${toolbox.store.file-store:local}")
+    private String fileStoreType;
+
+    @Value("${toolbox.store.conversation-store:local}")
+    private String conversationStoreType;
+
+    @Value("${toolbox.store.connection-registry:local}")
+    private String connectionRegistryType;
+
+    // ===== 基础设施 Beans（通过 toolbox.store.* 配置开关选择实现） =====
 
     @Bean
-    public FileManager fileManager() {
-        return new FileManager(fileUploadDir, fileMaxSize,
+    @ConditionalOnProperty(name = "toolbox.store.file-store", havingValue = "local",
+            matchIfMissing = true)
+    public FileStore localFileStore() {
+        log.info("[DocAgentConfig] FileStore: local");
+        return new LocalFileStore(fileUploadDir, fileMaxSize,
                 Duration.ofMinutes(conversationTtlMinutes));
     }
 
+    // TODO: @ConditionalOnProperty(name = "toolbox.store.file-store", havingValue = "oss")
+    // public FileStore ossFileStore() { return new OssFileStore(...); }
+
     @Bean
-    public SseConnectionManager sseConnectionManager() {
-        return new SseConnectionManager(sseMaxConnections, sseHeartbeatMs, sseTimeoutMs);
+    @ConditionalOnProperty(name = "toolbox.store.conversation-store", havingValue = "local",
+            matchIfMissing = true)
+    public ConversationStore localConversationStore() {
+        log.info("[DocAgentConfig] ConversationStore: local");
+        return new InMemoryConversationStore();
     }
 
     @Bean
-    public ConversationStore conversationStore() {
-        return new InMemoryConversationStore();
+    @ConditionalOnProperty(name = "toolbox.store.conversation-store", havingValue = "redis")
+    public ConversationStore redisConversationStore(StringRedisTemplate redis) {
+        log.info("[DocAgentConfig] ConversationStore: redis");
+        return new RedisConversationStore(redis, conversationTtlMinutes);
+    }
+
+    // TODO: @ConditionalOnProperty(name = "toolbox.store.conversation-store", havingValue = "jdbc")
+    // public ConversationStore jdbcConversationStore() { return new JdbcConversationStore(...); }
+
+    @Bean
+    @ConditionalOnProperty(name = "toolbox.store.connection-registry", havingValue = "local",
+            matchIfMissing = true)
+    public ConnectionRegistry localConnectionRegistry() {
+        log.info("[DocAgentConfig] ConnectionRegistry: local");
+        return new LocalConnectionRegistry(sseMaxConnections, sseHeartbeatMs, sseTimeoutMs);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "toolbox.store.connection-registry", havingValue = "redis")
+    public ConnectionRegistry redisConnectionRegistry(StringRedisTemplate redis) {
+        log.info("[DocAgentConfig] ConnectionRegistry: redis");
+        return new RedisConnectionRegistry(sseMaxConnections, sseHeartbeatMs, sseTimeoutMs,
+                redis);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "toolbox.store.connection-registry", havingValue = "local",
+            matchIfMissing = true)
+    public EventPublisher localEventPublisher(ConnectionRegistry connectionRegistry) {
+        log.info("[DocAgentConfig] EventPublisher: local");
+        return new LocalEventPublisher(connectionRegistry);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "toolbox.store.connection-registry", havingValue = "redis")
+    public EventPublisher redisEventPublisher(ConnectionRegistry connectionRegistry,
+                                               StringRedisTemplate redis,
+                                               RedisConnectionFactory connectionFactory) {
+        log.info("[DocAgentConfig] EventPublisher: redis");
+        return new RedisEventPublisher(redis, connectionRegistry, connectionFactory);
+    }
+
+    /**
+     * 共享心跳线程池 — 所有 SSE 连接复用，避免每次 new SingleThreadScheduledExecutor
+     */
+    @Bean
+    public ScheduledExecutorService heartbeatExecutor() {
+        return Executors.newScheduledThreadPool(4);
     }
 
     @Bean
@@ -106,9 +179,12 @@ public class DocAgentConfig {
             PdfToImageService pdfToImageService,
             DocumentService documentService,
             MarkdownService markdownService,
-            FileManager fileManager) {
+            FileStore fileStore,
+            PdfArrangeService pdfArrangeService,
+            ObjectMapper objectMapper) {
         return new DocAgentToolkit(pdfService, pdfCompressService, pdfToImageService,
-                documentService, markdownService, fileManager);
+                documentService, markdownService, fileStore,
+                pdfArrangeService, objectMapper);
     }
 
     @Bean
@@ -160,10 +236,10 @@ public class DocAgentConfig {
     @Bean
     public AgentService agentService(ReActAgent docAgent, DocAgentToolkit toolkit,
                                       ConversationManager conversationManager,
-                                      FileManager fileManager,
+                                      FileStore fileStore,
                                       ErrorClassifier errorClassifier) {
         return new AgentServiceImpl(docAgent, toolkit, conversationManager,
-                fileManager, errorClassifier);
+                fileStore, errorClassifier);
     }
 
     /** 配置的 baseUrl 优先，否则用默认值 */
