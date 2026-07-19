@@ -44,8 +44,8 @@ const resultUrl = ref('')
 
 // ===== 计算属性 =====
 
-/** 是否显示权限面板 */
-const showPermissions = computed(() => ownerPassword.value.trim().length > 0)
+/** 是否显示权限面板（所有者密码满足强度要求后才显示） */
+const showPermissions = computed(() => ownerPwdValid.value && ownerPassword.value.trim().length > 0)
 
 /** 开启的权限数量 */
 const enabledCount = computed(() => permissions.value.filter(p => p.value).length)
@@ -222,11 +222,8 @@ onUnmounted(() => {
       <!-- 上传区 -->
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">PDF 文件</label>
       <div
-        class="border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-3 transition-colors flex-shrink-0"
-        :class="[
-          stage === 'noFile' ? 'flex-1' : 'h-20',
-          stage === 'processing' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30'
-        ]"
+        class="border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-3 transition-colors flex-shrink-0 h-28"
+        :class="stage === 'processing' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30'"
         style="border-color: var(--border-color); background: var(--bg-card)"
         @click="stage !== 'processing' && triggerFileInput()"
         @dragover.prevent="stage !== 'processing' && (dragOver = true)"
@@ -315,6 +312,9 @@ onUnmounted(() => {
           </div>
           <p v-if="ownerPassword && !ownerPwdValid" class="text-[10px] mt-1" style="color: #ef4444">
             密码强度不足：至少6位，需包含数字和字母
+          </p>
+          <p v-else-if="ownerPassword && ownerPwdValid" class="text-[10px] mt-1" style="color: #22c55e">
+            ✓ 密码强度符合要求，可设置权限
           </p>
         </div>
 
