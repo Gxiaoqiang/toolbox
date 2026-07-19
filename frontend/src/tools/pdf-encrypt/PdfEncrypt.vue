@@ -44,8 +44,8 @@ const resultUrl = ref('')
 
 // ===== 计算属性 =====
 
-/** 是否显示权限面板（所有者密码满足强度要求后才显示） */
-const showPermissions = computed(() => ownerPwdValid.value && ownerPassword.value.trim().length > 0)
+/** 权限面板是否可编辑（所有者密码满足强度要求后才可编辑） */
+const permissionsEditable = computed(() => ownerPwdValid.value && ownerPassword.value.trim().length > 0)
 
 /** 开启的权限数量 */
 const enabledCount = computed(() => permissions.value.filter(p => p.value).length)
@@ -80,7 +80,7 @@ const canSubmit = computed(() => {
   if (!hasAtLeastOnePassword.value) return false
   if (!userPwdValid.value || !ownerPwdValid.value) return false
   if (passwordsSame.value) return false
-  if (showPermissions.value && allPermissionsOpen.value) return false
+  if (permissionsEditable.value && allPermissionsOpen.value) return false
   return true
 })
 
@@ -91,7 +91,7 @@ const submitDisabledReason = computed(() => {
   if (!userPwdValid.value) return '用户密码强度不足'
   if (!ownerPwdValid.value) return '所有者密码强度不足'
   if (passwordsSame.value) return '两个密码不能相同'
-  if (showPermissions.value && allPermissionsOpen.value) return '至少需要关闭一项权限'
+  if (permissionsEditable.value && allPermissionsOpen.value) return '至少需要关闭一项权限'
   return ''
 })
 
@@ -146,6 +146,9 @@ function clearResult() {
 }
 
 function togglePermission(key: string) {
+  // 权限不可编辑时禁止切换
+  if (!permissionsEditable.value) return
+
   const perm = permissions.value.find(p => p.key === key)
   if (!perm) return
 
@@ -329,44 +332,59 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <!-- 权限面板（所有者密码填写后才显示） -->
-      <Transition name="slide">
-        <div v-if="showPermissions" class="mt-3 border rounded-lg p-3 transition-opacity"
-          :class="stage === 'processing' ? 'opacity-60 pointer-events-none' : ''"
-          style="border-color: var(--border-color); background: var(--bg-card)">
-          <p class="text-xs font-semibold mb-2" style="color: var(--text-secondary)">操作权限</p>
-          <p class="text-[10px] mb-2" style="color: var(--text-muted)">设置所有者密码后，可控制受限用户的操作权限</p>
-
-          <div class="space-y-1.5">
-            <div
-              v-for="perm in permissions" :key="perm.key"
-              @click="togglePermission(perm.key)"
-              class="flex items-center gap-2 py-1 px-2 rounded cursor-pointer transition-colors"
-              :class="perm.value ? 'hover:bg-green-50/30' : 'hover:bg-red-50/30'"
-              :style="{ opacity: perm.value && enabledCount === 1 ? 0.6 : 1 }"
-            >
-              <!-- 开关 -->
-              <div
-                class="w-8 h-4 rounded-full flex items-center transition-all px-0.5"
-                :style="{
-                  background: perm.value ? 'var(--accent-color)' : '#d1d5db',
-                  justifyContent: perm.value ? 'flex-end' : 'flex-start',
-                }"
-              >
-                <div class="w-3 h-3 rounded-full bg-white shadow-sm"></div>
-              </div>
-              <span class="text-xs" style="color: var(--text-primary)">{{ perm.label }}</span>
-              <span v-if="perm.value && enabledCount === 1" class="text-[10px] ml-auto" style="color: var(--text-muted)">
-                （至少保留一项）
-              </span>
-            </div>
-          </div>
-
-          <p v-if="allPermissionsOpen" class="text-[10px] mt-2" style="color: #ef4444">
-            ⚠ 至少需要关闭一项权限
-          </p>
+      <!-- 权限面板（始终展示，密码符合要求后可编辑） -->
+      <div class="mt-3 border rounded-lg p-3 transition-all"
+        :class="[
+          stage === 'processing' ? 'opacity-60 pointer-events-none' : '',
+          !permissionsEditable ? 'opacity-50' : ''
+        ]"
+        :style="{
+          borderColor: 'var(--border-color)',
+          background: permissionsEditable ? 'var(--bg-card)' : 'var(--bg-card-hover)',
+        }">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold" style="color: var(--text-secondary)">操作权限</p>
+          <span v-if="!permissionsEditable" class="text-[10px] px-2 py-0.5 rounded-full"
+            style="background: var(--bg-card-hover); color: var(--text-muted)">
+            请先填写所有者密码
+          </span>
+          <span v-else class="text-[10px] px-2 py-0.5 rounded-full"
+            style="background: #dcfce7; color: #16a34a">
+            ✓ 可编辑
+          </span>
         </div>
-      </Transition>
+
+        <div class="space-y-1.5">
+          <div
+            v-for="perm in permissions" :key="perm.key"
+            @click="togglePermission(perm.key)"
+            class="flex items-center gap-2 py-1 px-2 rounded transition-colors"
+            :class="permissionsEditable
+              ? (perm.value ? 'cursor-pointer hover:bg-green-50/30' : 'cursor-pointer hover:bg-red-50/30')
+              : 'cursor-not-allowed'"
+            :style="{ opacity: permissionsEditable ? (perm.value && enabledCount === 1 ? 0.6 : 1) : 0.5 }"
+          >
+            <!-- 开关 -->
+            <div
+              class="w-8 h-4 rounded-full flex items-center transition-all px-0.5"
+              :style="{
+                background: perm.value ? 'var(--accent-color)' : '#d1d5db',
+                justifyContent: perm.value ? 'flex-end' : 'flex-start',
+              }"
+            >
+              <div class="w-3 h-3 rounded-full bg-white shadow-sm"></div>
+            </div>
+            <span class="text-xs" style="color: var(--text-primary)">{{ perm.label }}</span>
+            <span v-if="permissionsEditable && perm.value && enabledCount === 1" class="text-[10px] ml-auto" style="color: var(--text-muted)">
+              （至少保留一项）
+            </span>
+          </div>
+        </div>
+
+        <p v-if="permissionsEditable && allPermissionsOpen" class="text-[10px] mt-2" style="color: #ef4444">
+          ⚠ 至少需要关闭一项权限
+        </p>
+      </div>
     </div>
 
     <!-- ====== 中间：加密按钮 ====== -->
