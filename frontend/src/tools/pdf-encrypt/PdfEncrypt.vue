@@ -221,47 +221,51 @@ onUnmounted(() => {
 <template>
   <div class="flex gap-4 h-full">
     <!-- ====== 左侧：上传区 + 设置 ====== -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-      <!-- 上传区 -->
-      <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">PDF 文件</label>
-      <div
-        class="border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-3 transition-colors flex-shrink-0 h-28"
-        :class="stage === 'processing' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30'"
-        style="border-color: var(--border-color); background: var(--bg-card)"
-        @click="stage !== 'processing' && triggerFileInput()"
-        @dragover.prevent="stage !== 'processing' && (dragOver = true)"
-        @dragleave.prevent="dragOver = false"
-        @drop.prevent="stage !== 'processing' && handleDrop($event)"
-      >
-        <template v-if="stage === 'noFile'">
-          <span class="text-4xl">🔒</span>
-          <div class="text-center">
-            <p class="text-sm font-medium" style="color: var(--text-primary)">拖拽 PDF 到此处</p>
-            <p class="text-xs mt-1" style="color: var(--text-muted)">或点击选择文件 · 最大 50MB</p>
-          </div>
-        </template>
-        <template v-else>
-          <div class="flex items-center gap-3">
-            <span class="text-2xl">📄</span>
-            <div>
-              <p class="text-sm font-medium" style="color: var(--text-primary)">{{ uploadedFile!.name }}</p>
-              <p class="text-xs" style="color: var(--text-muted)">{{ formatSize(uploadedFile!.size) }}</p>
-            </div>
-            <button
-              v-if="stage !== 'processing'"
-              @click.stop="clearFile"
-              class="text-xs underline hover:text-red-500 transition-colors"
-              style="color: var(--text-muted)">移除</button>
-          </div>
-        </template>
-      </div>
-
-      <input ref="fileInputRef" type="file" accept=".pdf,application/pdf" class="hidden" @change="handleFileSelect" />
-
-      <!-- 密码设置 -->
-      <div class="mt-4 border rounded-lg p-3 transition-opacity"
-        :class="stage === 'processing' ? 'opacity-60 pointer-events-none' : ''"
+    <div class="flex-1 flex flex-col min-w-0">
+      <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">加密设置</label>
+      <!-- 虚线外框包裹三个模块 -->
+      <div class="flex-1 border-2 border-dashed rounded-2xl p-4 flex flex-col gap-3 overflow-y-auto"
         style="border-color: var(--border-color); background: var(--bg-card)">
+
+        <!-- 上传区 -->
+        <div
+          class="border rounded-lg flex flex-col items-center justify-center gap-3 transition-colors flex-shrink-0 h-24"
+          :class="stage === 'processing' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30'"
+          style="border-color: var(--border-color); background: var(--bg-main)"
+          @click="stage !== 'processing' && triggerFileInput()"
+          @dragover.prevent="stage !== 'processing' && (dragOver = true)"
+          @dragleave.prevent="dragOver = false"
+          @drop.prevent="stage !== 'processing' && handleDrop($event)"
+        >
+          <template v-if="stage === 'noFile'">
+            <span class="text-3xl">🔒</span>
+            <div class="text-center">
+              <p class="text-sm font-medium" style="color: var(--text-primary)">拖拽 PDF 到此处</p>
+              <p class="text-xs mt-1" style="color: var(--text-muted)">或点击选择文件 · 最大 50MB</p>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">📄</span>
+              <div>
+                <p class="text-sm font-medium" style="color: var(--text-primary)">{{ uploadedFile!.name }}</p>
+                <p class="text-xs" style="color: var(--text-muted)">{{ formatSize(uploadedFile!.size) }}</p>
+              </div>
+              <button
+                v-if="stage !== 'processing'"
+                @click.stop="clearFile"
+                class="text-xs underline hover:text-red-500 transition-colors"
+                style="color: var(--text-muted)">移除</button>
+            </div>
+          </template>
+        </div>
+
+        <input ref="fileInputRef" type="file" accept=".pdf,application/pdf" class="hidden" @change="handleFileSelect" />
+
+        <!-- 密码设置 -->
+        <div class="border rounded-lg p-3 transition-opacity"
+          :class="stage === 'processing' ? 'opacity-60 pointer-events-none' : ''"
+          style="border-color: var(--border-color); background: var(--bg-main)">
         <p class="text-xs font-semibold mb-3" style="color: var(--text-secondary)">密码设置</p>
 
         <!-- 用户密码 -->
@@ -333,14 +337,14 @@ onUnmounted(() => {
       </div>
 
       <!-- 权限面板（始终展示，密码符合要求后可编辑） -->
-      <div class="mt-3 border rounded-lg p-3 transition-all"
+      <div class="border rounded-lg p-3 transition-all"
         :class="[
           stage === 'processing' ? 'opacity-60 pointer-events-none' : '',
           !permissionsEditable ? 'opacity-50' : ''
         ]"
         :style="{
           borderColor: 'var(--border-color)',
-          background: permissionsEditable ? 'var(--bg-card)' : 'var(--bg-card-hover)',
+          background: permissionsEditable ? 'var(--bg-main)' : 'var(--bg-card-hover)',
         }">
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-semibold" style="color: var(--text-secondary)">操作权限</p>
@@ -384,6 +388,7 @@ onUnmounted(() => {
         <p v-if="permissionsEditable && allPermissionsOpen" class="text-[10px] mt-2" style="color: #ef4444">
           ⚠ 至少需要关闭一项权限
         </p>
+      </div>
       </div>
     </div>
 
