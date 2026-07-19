@@ -76,6 +76,7 @@
 - Maven 3.9+
 - Node.js 20+（仅开发构建时需要）
 - LibreOffice（仅文档转 PDF 功能需要，非必需）
+- Redis（可选，用于 Agent 会话持久化，默认使用内存存储）
 
 ## 快速开始
 
@@ -121,6 +122,105 @@ docker run -d -p 8899:8899 --name toolbox toolbox:1.0.0
 
 # 查看日志
 docker logs -f toolbox
+```
+
+## LibreOffice 安装（文档转 PDF 必需）
+
+文档转 PDF 功能依赖 LibreOffice headless 模式。不安装时其他功能正常使用，仅「文档转 PDF」不可用。
+
+### macOS
+
+```bash
+brew install --cask libreoffice
+# 安装后 soffice 命令自动可用
+```
+
+### Ubuntu / Debian
+
+```bash
+sudo apt update
+sudo apt install -y libreoffice-writer
+# 仅安装 writer 组件，体积最小
+```
+
+### CentOS / RHEL
+
+```bash
+sudo yum install -y libreoffice-writer libreoffice-langpack-zh-CN
+```
+
+### Windows
+
+1. 下载安装包：https://www.libreoffice.org/download/
+2. 安装时勾选「自定义安装」→ 仅安装 Writer
+3. 将安装目录加入 PATH，或在 `application.yml` 中配置完整路径：
+
+```yaml
+toolbox:
+  libreoffice:
+    binary-path: C:\Program Files\LibreOffice\program\soffice.exe
+```
+
+### 验证安装
+
+```bash
+soffice --version
+# 预期输出类似: LibreOffice 7.x.x.x xxx
+```
+
+### Docker 环境
+
+Dockerfile 已内置 LibreOffice + 中文字体（Noto CJK + WQY），无需额外安装。
+
+## AI 文档助手配置
+
+文档助手需要配置 LLM API Key 才能使用。支持三种 LLM 提供商：
+
+### 环境变量配置
+
+```bash
+# DeepSeek（推荐，性价比高）
+export LLM_API_KEY=sk-your-deepseek-api-key
+
+# 或者使用阿里云百炼（DashScope）
+export LLM_API_KEY=sk-your-dashscope-api-key
+
+# 可选：自定义 API Base URL（内网代理等）
+export LLM_BASE_URL=https://your-proxy.example.com
+```
+
+### application.yml 配置
+
+```yaml
+toolbox:
+  agent:
+    # LLM 提供商: dashscope / openai / deepseek
+    llm-provider: deepseek
+    # 模型名称
+    llm-model: deepseek-v4-pro
+    # API Key（优先使用环境变量 LLM_API_KEY）
+    llm-api-key: ${LLM_API_KEY:}
+    # API Base URL（可选）
+    llm-base-url: ${LLM_BASE_URL:}
+```
+
+### 支持的 LLM 提供商
+
+| 提供商 | llm-provider | llm-model 推荐 | 说明 |
+|--------|-------------|---------------|------|
+| DeepSeek | `deepseek` | `deepseek-v4-pro` | 推荐，性价比高 |
+| 阿里云百炼 | `dashscope` | `qwen-plus` | 国内访问快 |
+| OpenAI | `openai` | `gpt-4o` | 需要海外网络 |
+
+### 会话存储（可选）
+
+默认使用内存存储会话，重启后清空。配置 Redis 可持久化：
+
+```bash
+export TOOLBOX_STORE_CONVERSATION=redis
+export TOOLBOX_STORE_CONNECTION=redis
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
 ```
 
 ## 项目结构
