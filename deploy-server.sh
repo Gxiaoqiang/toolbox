@@ -5,7 +5,17 @@
 # ============================================================
 set -euo pipefail
 
-echo "===== 1/6 停止旧容器 ====="
+# 加载环境变量（LLM_API_KEY 等）
+ENV_FILE="/opt/toolbox/.env"
+if [ -f "$ENV_FILE" ]; then
+    set -a; source "$ENV_FILE"; set +a
+    echo " ✓ 已加载配置: ${ENV_FILE}"
+else
+    echo " ⚠ 未找到 ${ENV_FILE}，请创建并配置 LLM_API_KEY"
+fi
+
+echo ""
+echo "===== 1/7 停止旧容器 ====="
 if docker ps --format '{{.Names}}' | grep -q '^toolbox$'; then
     echo "停止 toolbox..."
     docker stop toolbox
@@ -17,7 +27,7 @@ else
 fi
 
 echo ""
-echo "===== 2/6 导入基础镜像（首次需要，后续跳过）====="
+echo "===== 2/7 导入基础镜像（首次需要，后续跳过）====="
 BASE_TAR="/opt/images/toolbox-base-1.0.tar.gz"
 if [ -f "$BASE_TAR" ]; then
     if ! docker image inspect toolbox-base:1.0 >/dev/null 2>&1; then
@@ -32,7 +42,7 @@ else
 fi
 
 echo ""
-echo "===== 3/6 导入应用镜像 ====="
+echo "===== 3/7 导入应用镜像 ====="
 APP_TAR="/opt/images/toolbox-lo-1.0.0.tar.gz"
 if [ -f "$APP_TAR" ]; then
     gunzip -k "$APP_TAR" 2>/dev/null || true
@@ -44,7 +54,7 @@ else
 fi
 
 echo ""
-echo "===== 4/6 准备 JAR 挂载目录 ====="
+echo "===== 4/7 准备 JAR 挂载目录 ====="
 JAR_DIR="/opt/toolbox"
 JAR_NAME="toolbox-1.0.0.jar"         # 保持 Maven 打包原名
 JAR_FILE="${JAR_DIR}/${JAR_NAME}"
@@ -60,7 +70,7 @@ else
 fi
 
 echo ""
-echo "===== 5/6 初始化 LibreOffice 优化配置 ====="
+echo "===== 5/7 初始化 LibreOffice 优化配置 ====="
 LO_PROFILE="/opt/lo-profile"
 LO_USER="${LO_PROFILE}/user"
 mkdir -p "$LO_USER"
@@ -98,9 +108,12 @@ echo ""
 echo "===== 7/7 启动服务 ====="
 docker run -d \
     --name toolbox \
-    -p 8899:8899 \
+    -p 8898:8898 \
     -v "${JAR_FILE}:/app/app.jar" \
     -v "${LO_PROFILE}:/opt/lo-profile" \
+    -e LLM_API_KEY="${LLM_API_KEY:-}" \
+    -e LLM_BASE_URL="${LLM_BASE_URL:-}" \
+    -e SERVER_PORT="${SERVER_PORT:-8898}" \
     --restart unless-stopped \
     toolbox-lo:1.0.0
 
@@ -112,7 +125,7 @@ docker logs --tail 20 toolbox
 echo ""
 echo "============================================"
 echo " ✅ 部署完成!"
-echo " 访问: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '服务器IP'):8899"
+echo " 访问: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '服务器IP'):8898"
 echo ""
 echo " 后续更新 JAR（无需重新打镜像，Maven 产物直接 scp）:"
 echo "   scp backend/target/${JAR_NAME} root@服务器:${JAR_FILE}"

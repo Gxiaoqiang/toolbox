@@ -1,20 +1,42 @@
+
 # 🧰 Toolbox — 开发/办公工具箱
 
-> 一个可扩展的 Web 工具箱，集成 JSON 处理、Markdown 转换、PDF 切分、文档转 PDF、编解码、哈希计算等常用工具。
+> 一个可扩展的 Web 工具箱，集成文档转换、PDF 处理、图片转 PDF、JSON 处理、编解码、哈希计算等 20+ 常用工具。内置 AI 文档助手，支持自然语言操作。
 
 ## 在线体验
 
 启动后访问 `http://localhost:8899`
 
-## 功能清单（13 个工具）
+## 功能清单（20 个工具）
 
-### 📄 文件工具
+### 📄 文档转换
 
 | 工具 | 说明 | 后端 |
 |------|------|------|
 | **Markdown 工具箱** | Markdown 实时预览（GFM）、快捷插入、语法速查、导出 HTML、导出 DOCX | ✓ |
-| **PDF 切分** | 逐页拆分 / 按页码范围（如 1,3,5-8）/ 每 N 页拆分，支持保留元数据，ZIP 下载 | ✓ |
 | **文档转 PDF** | .doc / .docx / .wps → PDF 批量转换（最多 5 个），ZIP 下载 | ✓ |
+
+### 📑 PDF 处理
+
+| 工具 | 说明 | 后端 |
+|------|------|------|
+| **PDF 切分** | 逐页拆分 / 按页码范围（如 1,3,5-8）/ 每 N 页拆分，支持保留元数据，ZIP 下载 | ✓ |
+| **PDF 合并** | 多个 PDF 按顺序合并为一个（2-10 个），支持保留元数据 | ✓ |
+| **PDF 压缩** | 5 级压缩（极度压缩 → 极限画质），显示压缩比 | ✓ |
+| **PDF 转图片** | PDF 逐页转 PNG/JPEG/WEBP，可调 DPI（72-600），ZIP 下载 | ✓ |
+| **PDF 编排** | 自由编排 PDF 页面——拖拽排序、删除、旋转、插入空白页、合并多文件 | ✓ |
+
+### 🖼️ 图片处理
+
+| 工具 | 说明 | 后端 |
+|------|------|------|
+| **图片转 PDF** | 多张图片合并为 PDF，支持 JPG/PNG/WEBP/GIF，可调方向/边距/适配方式 | ✓ |
+
+### 🤖 AI 助手
+
+| 工具 | 说明 | 后端 |
+|------|------|------|
+| **文档助手** | AI 对话式处理，自然语言完成 PDF/文档/图片操作，支持文件上传 | ✓ |
 
 ### 💻 开发辅助
 
@@ -42,8 +64,9 @@
 |---|------|
 | 前端 | Vue 3 (Composition API) + TypeScript + Vite + TailwindCSS v4 |
 | 后端 | Spring Boot 3.3 + JDK 17 + Maven |
+| AI 助手 | AgentScope (ReAct Agent) + DeepSeek / DashScope LLM |
 | Markdown | marked (GFM 前端渲染) / flexmark + docx4j (服务端 DOCX 导出) |
-| PDF 处理 | Apache PDFBox 3.0 |
+| PDF 处理 | Apache PDFBox 3.0 / pdfjs-dist (前端缩略图渲染) |
 | 文档转换 | LibreOffice headless (soffice CLI) |
 | 其他 | js-yaml, spark-md5 |
 
@@ -111,7 +134,13 @@ toolbox/
 │       │   ├── registry.ts    # 自动扫描 & 注册中心
 │       │   ├── md-toolbox/    # Markdown 工具箱
 │       │   ├── pdf-splitter/  # PDF 切分
+│       │   ├── pdf-merge/     # PDF 合并
+│       │   ├── pdf-compress/  # PDF 压缩
+│       │   ├── pdf-to-image/  # PDF 转图片
+│       │   ├── pdf-arrange/   # PDF 编排
+│       │   ├── image-to-pdf/  # 图片转 PDF
 │       │   ├── doc-to-pdf/    # 文档转 PDF
+│       │   ├── doc-agent/     # AI 文档助手
 │       │   ├── json-formatter/# JSON 工具箱
 │       │   └── ...            # 其他工具
 │       ├── layouts/           # 布局组件
@@ -121,13 +150,21 @@ toolbox/
 │   └── src/main/java/com/toolbox/
 │       ├── controller/        # 接口层
 │       │   ├── markdown/      # Markdown 转换接口
-│       │   ├── pdf/           # PDF 切分接口
-│       │   └── document/      # 文档转 PDF 接口
+│       │   ├── pdf/           # PDF 处理接口（切分/合并/压缩/转图片/编排）
+│       │   ├── image/         # 图片处理接口（图片转 PDF）
+│       │   ├── document/      # 文档转 PDF 接口
+│       │   └── AgentController.java  # AI 文档助手接口
 │       ├── service/           # 业务层
+│       │   ├── pdf/           # PDF 处理服务
+│       │   ├── image/         # 图片处理服务
+│       │   ├── agent/         # Agent 工具箱 + 会话管理
+│       │   ├── document/      # 文档转换服务
+│       │   ├── markdown/      # Markdown 服务
+│       │   └── store/         # 文件存储
 │       ├── model/             # 数据模型（R 统一响应体）
 │       ├── exception/         # 全局异常处理
 │       ├── util/              # 工具类
-│       └── config/            # Web 配置
+│       └── config/            # Web + Agent 配置
 └── Dockerfile
 ```
 
@@ -157,7 +194,13 @@ const meta: ToolMeta = {
 |------|------|------|
 | POST | `/api/markdown/md-to-docx` | Markdown 转 DOCX 文件下载 |
 | POST | `/api/pdf/split` | PDF 切分（逐页/范围/每N页），ZIP 下载 |
+| POST | `/api/pdf/merge` | PDF 合并（2-10 个文件） |
+| POST | `/api/pdf/compress` | PDF 压缩（5 级） |
+| POST | `/api/pdf/to-image` | PDF 转图片（PNG/JPEG/WEBP） |
+| POST | `/api/pdf/arrange` | PDF 编排（页面排序/删除/旋转/插入空白页） |
+| POST | `/api/image/to-pdf` | 图片转 PDF（JPG/PNG/WEBP/GIF） |
 | POST | `/api/document/convert-to-pdf` | 文档转 PDF（批量最多 5 个），ZIP 下载 |
+| POST | `/api/agent/chat` | AI 文档助手对话（SSE 流式响应） |
 
 ### 统一响应格式
 

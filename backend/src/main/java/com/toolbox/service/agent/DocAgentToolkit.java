@@ -2,6 +2,7 @@ package com.toolbox.service.agent;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.service.document.DocumentService;
+import com.toolbox.service.image.ImageToPdfService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
 import com.toolbox.service.store.FileStore;
@@ -18,7 +19,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Agent 工具箱 — 6 个 @Tool 方法封装现有文档处理 Service
@@ -41,15 +47,20 @@ public class DocAgentToolkit {
     private final FileStore fileStore;
 
     private final PdfArrangeService pdfArrangeService;
+    private final ImageToPdfService imageToPdfService;
     private final ObjectMapper objectMapper;
 
-    /** 最后一次工具调用的产物信息 */
-    private volatile ToolResult lastResult;
+    /** 当前正在处理的对话 ID — AgentServiceImpl 调用前设置 */
+    private volatile String currentConversationId;
+
+    /** 各对话的工具产物 — 按 conversationId 隔离，支持并发 */
+    private final ConcurrentHashMap<String, ToolResult> conversationResults = new ConcurrentHashMap<>();
 
     public DocAgentToolkit(PdfService pdfService, PdfCompressService pdfCompressService,
                            PdfToImageService pdfToImageService,
                            DocumentService documentService, MarkdownService markdownService,
                            FileStore fileStore, PdfArrangeService pdfArrangeService,
+                           ImageToPdfService imageToPdfService,
                            ObjectMapper objectMapper) {
         this.pdfService = pdfService;
         this.pdfCompressService = pdfCompressService;
@@ -58,18 +69,37 @@ public class DocAgentToolkit {
         this.markdownService = markdownService;
         this.fileStore = fileStore;
         this.pdfArrangeService = pdfArrangeService;
+        this.imageToPdfService = imageToPdfService;
         this.objectMapper = objectMapper;
     }
 
-    /** 获取最后一次工具调用的产物（AgentService 用于推送 result SSE 事件） */
-    public ToolResult getLastResult() {
-        ToolResult r = lastResult;
-        lastResult = null; // 一次性消费
-        return r;
+    /**
+     * 设置当前对话 ID — AgentServiceImpl 在调用 agent 前设置
+     */
+    public void setCurrentConversationId(String conversationId) {
+        this.currentConversationId = conversationId;
+    }
+
+    /**
+     * 获取指定对话的工具产物（一次性消费）
+     *
+     * @param conversationId 对话 ID
+     * @return 工具产物，无产物返回 null
+     */
+    public ToolResult getLastResult(String conversationId) {
+        return conversationResults.remove(conversationId);
+    }
+
+    /**
+     * 清理指定对话的残留产物 — finally 块中调用，防止内存泄漏
+     */
+    public void clearResult(String conversationId) {
+        conversationResults.remove(conversationId);
     }
 
     /** 工具产物记录 */
-    public record ToolResult(String fileId, String fileName, long size) {}
+    public record
+    ToolResult(String fileId, String fileName, long size) {}
 
     // ===== 辅助方法 =====
 
@@ -132,7 +162,7 @@ public class DocAgentToolkit {
                 pages != null ? pages : "", everyN, true);
 
         String resultId = fileStore.store(result, baseName + "_split.zip");
-        lastResult = new ToolResult(resultId, baseName + "_split.zip", result.length);
+        conversationResults.put(currentConversationId, new ToolResult(resultId, baseName + "_split.zip", result.length));
         int pageCount = estimatePageCount(pdfBytes);
         return String.format("切分完成！%d 页 PDF 已拆分, 文件 ID: %s, 大小: %.1fMB",
                 pageCount, resultId, result.length / (1024.0 * 1024.0));
@@ -160,7 +190,7 @@ public class DocAgentToolkit {
 
         byte[] result = pdfService.mergePdf(bytesList, true);
         String resultId = fileStore.store(result, "merged.pdf");
-        lastResult = new ToolResult(resultId, "merged.pdf", result.length);
+        conversationResults.put(currentConversationId, new ToolResult(resultId, "merged.pdf", result.length));
         return String.format("合并完成！%d 个文件 → 1 个 PDF, 文件 ID: %s, 大小: %.1fMB",
                 ids.length, resultId, result.length / (1024.0 * 1024.0));
     }
@@ -184,7 +214,7 @@ public class DocAgentToolkit {
         PdfCompressResult result = pdfCompressService.compress(pdfBytes, baseName + ".pdf", level);
 
         String resultId = fileStore.store(result.getData(), baseName + "_compressed.pdf");
-        lastResult = new ToolResult(resultId, baseName + "_compressed.pdf", result.getData().length);
+        conversationResults.put(currentConversationId, new ToolResult(resultId, baseName + "_compressed.pdf", result.getData().length));
         return String.format("压缩完成！%.1fMB → %.1fMB (%.0f%%), 文件 ID: %s",
                 result.getOriginalSize() / (1024.0 * 1024.0),
                 result.getCompressedSize() / (1024.0 * 1024.0),
@@ -221,7 +251,7 @@ public class DocAgentToolkit {
         // 单页用 PdfToImageResult 返回的正确文件名（如 xxx.png），多页才是 .zip
         String resultFileName = result.getDownloadFilename();
         String resultId = fileStore.store(result.getData(), resultFileName);
-        lastResult = new ToolResult(resultId, resultFileName, result.getData().length);
+        conversationResults.put(currentConversationId, new ToolResult(resultId, resultFileName, result.getData().length));
         return String.format("转换完成！格式: %s, DPI: %d, 文件 ID: %s, 大小: %.1fMB",
                 format.toUpperCase(), dpi, resultId,
                 result.getData().length / (1024.0 * 1024.0));
@@ -246,7 +276,7 @@ public class DocAgentToolkit {
             byte[] result = documentService.convertToPdf(docBytes, baseName + ext);
 
             String resultId = fileStore.store(result, baseName + ".pdf");
-            lastResult = new ToolResult(resultId, baseName + ".pdf", result.length);
+            conversationResults.put(currentConversationId, new ToolResult(resultId, baseName + ".pdf", result.length));
             return String.format("转换完成！文件 ID: %s, 大小: %.1fMB",
                     resultId, result.length / (1024.0 * 1024.0));
         } catch (Exception e) {
@@ -271,7 +301,7 @@ public class DocAgentToolkit {
 
         byte[] result = markdownService.convertMarkdownToDocx(markdownContent);
         String resultId = fileStore.store(result, outputName + ".docx");
-        lastResult = new ToolResult(resultId, outputName + ".docx", result.length);
+        conversationResults.put(currentConversationId, new ToolResult(resultId, outputName + ".docx", result.length));
         return String.format("转换完成！%d 字符 → DOCX, 文件 ID: %s, 大小: %.1fKB",
                 markdownContent.length(), resultId, result.length / 1024.0);
     }
@@ -346,7 +376,7 @@ public class DocAgentToolkit {
             byte[] result = pdfArrangeService.arrange(pdfBytesList, planItems);
 
             String resultId = fileStore.store(result, "arranged.pdf");
-            lastResult = new ToolResult(resultId, "arranged.pdf", result.length);
+            conversationResults.put(currentConversationId, new ToolResult(resultId, "arranged.pdf", result.length));
             return String.format("编排完成！%d 个源文件 → %d 页 PDF, 文件 ID: %s, 大小: %.1fMB",
                     ids.length, planItems.size(), resultId,
                     result.length / (1024.0 * 1024.0));
@@ -363,5 +393,108 @@ public class DocAgentToolkit {
             sb.append("\n请根据以上各文件实际页数修正 plan 中的 page 值后重试。");
             return sb.toString();
         }
+    }
+
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp", "gif");
+
+    @Tool(name = "imageToPdf", description = "将多张图片合并为 PDF 文件。支持 JPG/PNG/WEBP/GIF 格式，可配置页面方向、边距和适配方式")
+    public String imageToPdf(
+            @ToolParam(name = "fileIds", required = true, description = "图片文件 ID 列表，逗号分隔，如 'abc.jpg,def.png'")
+            String fileIds,
+            @ToolParam(name = "orientation", description = "页面方向: portrait(纵向)/landscape(横向)，默认 portrait")
+            String orientation,
+            @ToolParam(name = "margin", description = "页面边距: none(无)/small(小)/large(大)，默认 small")
+            String margin,
+            @ToolParam(name = "fitMode", description = "图片适配方式: contain(等比)/cover(裁剪)/stretch(拉伸)，默认 contain")
+            String fitMode,
+            @ToolParam(name = "merge", description = "是否合并为一个 PDF: true(合并)/false(独立打包ZIP)，默认 true")
+            Boolean merge) {
+
+        if (orientation == null || orientation.isBlank()) orientation = "portrait";
+        if (margin == null || margin.isBlank()) margin = "small";
+        if (fitMode == null || fitMode.isBlank()) fitMode = "contain";
+        if (merge == null) merge = true;
+
+        String[] ids = fileIds.split(",");
+        if (ids.length < 1 || ids.length > 50) {
+            return "错误: 需要 1-50 张图片，当前 " + ids.length + " 个";
+        }
+
+        log.info("[DocAgentToolkit#imageToPdf] {} images, orientation={}, margin={}, fitMode={}, merge={}",
+                ids.length, orientation, margin, fitMode, merge);
+
+        // 1. 加载所有图片文件
+        List<byte[]> imageBytesList = new ArrayList<>();
+        List<String> extensions = new ArrayList<>();
+        for (String id : ids) {
+            String trimmedId = id.trim();
+            byte[] bytes = loadFile(trimmedId);
+            imageBytesList.add(bytes);
+
+            // 提取扩展名
+            String ext = trimmedId.contains(".")
+                    ? trimmedId.substring(trimmedId.lastIndexOf('.')).toLowerCase()
+                    : "";
+            if (!ALLOWED_IMAGE_EXTENSIONS.contains(ext.replace(".", ""))) {
+                return "错误: 不支持的图片格式: " + ext + "，仅支持 JPG/PNG/WEBP/GIF";
+            }
+            extensions.add(ext);
+        }
+
+        // 2. 执行转换
+        try {
+            byte[] result;
+            String resultFileName;
+
+            if (merge) {
+                // 合并模式
+                result = imageToPdfService.convertToPdf(
+                        imageBytesList, extensions, orientation, margin, fitMode);
+                resultFileName = "images.pdf";
+            } else {
+                // 独立模式：每张图片独立转 PDF 后打包 ZIP
+                result = buildZipOfPdfs(imageBytesList, extensions, orientation, margin, fitMode, ids);
+                resultFileName = "images.zip";
+            }
+
+            String resultId = fileStore.store(result, resultFileName);
+            conversationResults.put(currentConversationId,
+                    new ToolResult(resultId, resultFileName, result.length));
+            return String.format("转换完成！%d 张图片 → %s, 文件 ID: %s, 大小: %.1fMB",
+                    ids.length, merge ? "单个 PDF" : "ZIP 包",
+                    resultId, result.length / (1024.0 * 1024.0));
+
+        } catch (BusinessException e) {
+            return "转换失败: " + e.getMessage();
+        } catch (Exception e) {
+            log.error("[DocAgentToolkit#imageToPdf] conversion failed", e);
+            return "图片转 PDF 失败，请稍后重试。";
+        }
+    }
+
+    /**
+     * 每张图片独立转 PDF 后打包为 ZIP
+     */
+    private byte[] buildZipOfPdfs(List<byte[]> imageBytesList, List<String> extensions,
+                                   String orientation, String margin, String fitMode,
+                                   String[] ids) throws Exception {
+        java.io.ByteArrayOutputStream zipOut = new java.io.ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(zipOut)) {
+            for (int i = 0; i < imageBytesList.size(); i++) {
+                byte[] pdfBytes = imageToPdfService.convertToPdf(
+                        List.of(imageBytesList.get(i)),
+                        List.of(extensions.get(i)),
+                        orientation, margin, fitMode);
+
+                String baseName = ids[i].trim();
+                int dot = baseName.lastIndexOf('.');
+                String name = dot > 0 ? baseName.substring(0, dot) : baseName;
+
+                zos.putNextEntry(new ZipEntry(name + ".pdf"));
+                zos.write(pdfBytes);
+                zos.closeEntry();
+            }
+        }
+        return zipOut.toByteArray();
     }
 }

@@ -3,7 +3,7 @@ import type { ToolMeta } from '@/tools/types'
 export const meta: ToolMeta = {
   id: 'doc-agent',
   name: '文档助手',
-  description: 'AI 对话式文档处理，支持 PDF 切分/合并/压缩/转图片/编排、文档转 PDF、Markdown 转 DOCX',
+  description: 'AI 对话式处理文档、PDF、图片，支持切分/合并/压缩/编排/转换等操作',
   icon: '🤖',
   category: 'file',
   pinned: true,
@@ -164,7 +164,7 @@ function formatSize(bytes: number): string {
           <span class="upload-icon">📎</span>
           <input type="file" multiple hidden
             @change="handleFileSelect"
-            accept=".pdf,.doc,.docx,.wps,.md" />
+            accept=".pdf,.doc,.docx,.wps,.md,.jpg,.jpeg,.png,.webp,.gif" />
         </label>
         <textarea ref="textareaRef" v-model="inputText"
           @keydown="handleKeydown"
@@ -181,7 +181,7 @@ function formatSize(bytes: number): string {
           <span class="send-icon">↑</span>
         </button>
       </div>
-      <p class="input-hint">Enter 发送，Shift+Enter 换行 · 支持 PDF / DOCX / WPS / MD 文件</p>
+      <p class="input-hint">Enter 发送，Shift+Enter 换行 · 支持 PDF / DOCX / WPS / MD / 图片文件</p>
     </div>
   </div>
 </template>

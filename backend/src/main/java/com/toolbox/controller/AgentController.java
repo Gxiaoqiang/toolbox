@@ -2,9 +2,10 @@ package com.toolbox.controller;
 
 import com.toolbox.model.agent.ChatEvent;
 import com.toolbox.service.agent.AgentService;
+import com.toolbox.service.agent.ConnectionRegistry;
 import com.toolbox.service.agent.ConversationManager;
-import com.toolbox.service.agent.FileManager;
-import com.toolbox.service.agent.SseConnectionManager;
+import com.toolbox.service.agent.EventPublisher;
+import com.toolbox.service.store.FileStore;
 import io.agentscope.core.ReActAgent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,11 +18,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,24 +38,36 @@ public class AgentController {
     private static final Logger log = LoggerFactory.getLogger(AgentController.class);
 
     private final AgentService agentService;
-    private final SseConnectionManager sseConnectionManager;
-    private final FileManager fileManager;
+    private final ConnectionRegistry connectionRegistry;
+    private final FileStore fileStore;
     private final ConversationManager conversationManager;
     private final ReActAgent docAgent;
+    private final ThreadPoolExecutor toolboxExecutor;
+    private final ScheduledExecutorService heartbeatExecutor;
+    private final EventPublisher eventPublisher;
+
+    /** 正在处理中的 conversationId 集合 — cancel 时校验用 */
+    private final ConcurrentHashMap<String, Boolean> activeConversations = new ConcurrentHashMap<>();
 
     public AgentController(AgentService agentService,
-                           SseConnectionManager sseConnectionManager,
-                           FileManager fileManager,
+                           ConnectionRegistry connectionRegistry,
+                           FileStore fileStore,
                            ConversationManager conversationManager,
-                           ReActAgent docAgent) {
+                           ReActAgent docAgent,
+                           ThreadPoolExecutor toolboxExecutor,
+                           ScheduledExecutorService heartbeatExecutor,
+                           EventPublisher eventPublisher) {
         this.agentService = agentService;
-        this.sseConnectionManager = sseConnectionManager;
-        this.fileManager = fileManager;
+        this.connectionRegistry = connectionRegistry;
+        this.fileStore = fileStore;
         this.conversationManager = conversationManager;
         this.docAgent = docAgent;
+        this.toolboxExecutor = toolboxExecutor;
+        this.heartbeatExecutor = heartbeatExecutor;
+        this.eventPublisher = eventPublisher;
 
         // SSE 连接断开时自动清理对应对话数据，防止内存泄漏
-        this.sseConnectionManager.setOnDisconnect(conversationId -> {
+        this.connectionRegistry.setOnDisconnect(conversationId -> {
             conversationManager.delete(conversationId);
             log.info("[AgentController] cleaned up conversation on disconnect: {}", conversationId);
         });
@@ -73,7 +86,7 @@ public class AgentController {
             @RequestParam(value = "files", required = false) MultipartFile[] files,
             @RequestParam(value = "conversationId", required = false) String conversationId) {
 
-        SseEmitter emitter = new SseEmitter(sseConnectionManager.getConnectionTimeoutMs());
+        SseEmitter emitter = new SseEmitter(connectionRegistry.getConnectionTimeoutMs());
 
         // 新对话: 提前创建 conversation，确保 SSE 断开时能用真实 ID 清理数据
         boolean isNewConversation = (conversationId == null || conversationId.isBlank());
@@ -82,8 +95,21 @@ public class AgentController {
         }
 
         // 注册连接（并发控制 + 单 conversation 互斥）
-        if (!sseConnectionManager.register(conversationId, emitter)) {
-            // 注册失败：如果是刚创建的新对话，回滚清理
+        // 心跳 ScheduledFuture，SSE 断开时通过 cleanup 回调取消
+        ScheduledFuture<?> heartbeatFuture = heartbeatExecutor.scheduleAtFixedRate(() -> {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat").data("{}"));
+            } catch (IOException e) {
+                // SSE 已断开，心跳后续会被 cleanup 取消
+            }
+        }, connectionRegistry.getHeartbeatIntervalMs(),
+           connectionRegistry.getHeartbeatIntervalMs(), TimeUnit.MILLISECONDS);
+
+        if (!connectionRegistry.register(conversationId, emitter,
+                () -> heartbeatFuture.cancel(false))) {
+            // 注册失败：取消心跳，回滚新创建的对话
+            heartbeatFuture.cancel(false);
             if (isNewConversation) {
                 conversationManager.delete(conversationId);
             }
@@ -96,21 +122,11 @@ public class AgentController {
             return emitter;
         }
 
-        // 启动心跳定时器
-        ScheduledExecutorService heartbeat = Executors.newSingleThreadScheduledExecutor();
-        heartbeat.scheduleAtFixedRate(() -> {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("heartbeat").data("{}"));
-            } catch (IOException e) {
-                heartbeat.shutdown();
-            }
-        }, sseConnectionManager.getHeartbeatIntervalMs(),
-           sseConnectionManager.getHeartbeatIntervalMs(), TimeUnit.MILLISECONDS);
-
         // 异步处理 Agent 对话
         String finalConvId = conversationId;
-        new Thread(() -> {
+
+        toolboxExecutor.execute(() -> {
+            activeConversations.put(finalConvId, Boolean.TRUE);
             try {
                 agentService.handle(message, files, finalConvId, event -> {
                     try {
@@ -137,21 +153,26 @@ public class AgentController {
                     emitter.completeWithError(ex);
                 }
             } finally {
-                heartbeat.shutdown();
-                sseConnectionManager.unregister(finalConvId);
+                activeConversations.remove(finalConvId);
+                connectionRegistry.unregister(finalConvId);
             }
-        }, "agent-chat-" + finalConvId).start();
+        });
+
 
         return emitter;
     }
 
     /**
-     * 取消当前处理
+     * 取消当前处理 — 仅对活跃中的对话生效
      */
     @PostMapping("/cancel")
     public ResponseEntity<?> cancel(@RequestParam("conversationId") String conversationId) {
+        if (!activeConversations.containsKey(conversationId)) {
+            log.info("[AgentController#cancel] conversation {} not active, skip", conversationId);
+            return ResponseEntity.ok().build();
+        }
         docAgent.interrupt(); // 中断 ReActAgent 推理循环
-        sseConnectionManager.unregister(conversationId);
+        connectionRegistry.unregister(conversationId);
         log.info("[AgentController#cancel] cancelled: {}", conversationId);
         return ResponseEntity.ok().build();
     }
@@ -162,8 +183,8 @@ public class AgentController {
     @GetMapping("/download/{fileId}")
     public ResponseEntity<Resource> download(@PathVariable String fileId) {
         try {
-            File file = fileManager.load(fileId);
-            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(file.toPath()));
+            byte[] data = fileStore.load(fileId);
+            ByteArrayResource resource = new ByteArrayResource(data);
 
             String filename = fileId.contains(".") ? fileId : fileId + ".bin";
             return ResponseEntity.ok()

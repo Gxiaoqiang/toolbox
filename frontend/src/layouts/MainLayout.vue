@@ -65,7 +65,7 @@
                   :style="{ color: groupColor(group.name) }"
                 >
                   <span class="transform transition-transform duration-200 text-[10px]" :class="{ 'rotate-90': !collapsedGroups.has(category.key + '/' + group.name) }">▶</span>
-                  <span class="text-sm flex-shrink-0">📑</span>
+                  <span class="text-sm flex-shrink-0">{{ groupIcon(group.name) }}</span>
                   <span class="flex-1 text-left">{{ group.name }}</span>
                   <span class="text-[10px] font-normal" style="color: var(--text-muted)">{{ group.tools.length }} 个</span>
                 </button>
@@ -232,10 +232,21 @@ function toggleGroup(groupKey: string) {
 /** 分组标题配色（与分类标题 text-secondary 区分） */
 const GROUP_COLORS: Record<string, string> = {
   'PDF 工具包': '#6366f1',   // indigo-500
+  '图片工具包': '#10b981',   // emerald-500
   'JSON 工具箱': '#8b5cf6',  // violet-500
 }
 function groupColor(name: string): string {
   return GROUP_COLORS[name] || 'var(--accent-color)'
+}
+
+/** 分组图标 */
+const GROUP_ICONS: Record<string, string> = {
+  'PDF 工具包': '📑',
+  '图片工具包': '🖼️',
+  'JSON 工具箱': '📦',
+}
+function groupIcon(name: string): string {
+  return GROUP_ICONS[name] || '📁'
 }
 
 const tools = computed(() => getTools())

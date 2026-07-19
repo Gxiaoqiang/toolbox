@@ -7,6 +7,7 @@ import com.toolbox.model.agent.impl.RedisConversationStore;
 import com.toolbox.service.agent.*;
 import com.toolbox.service.agent.impl.*;
 import com.toolbox.service.document.DocumentService;
+import com.toolbox.service.image.ImageToPdfService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
 import com.toolbox.service.store.FileStore;
@@ -181,10 +182,11 @@ public class DocAgentConfig {
             MarkdownService markdownService,
             FileStore fileStore,
             PdfArrangeService pdfArrangeService,
+            ImageToPdfService imageToPdfService,
             ObjectMapper objectMapper) {
         return new DocAgentToolkit(pdfService, pdfCompressService, pdfToImageService,
                 documentService, markdownService, fileStore,
-                pdfArrangeService, objectMapper);
+                pdfArrangeService, imageToPdfService, objectMapper);
     }
 
     @Bean

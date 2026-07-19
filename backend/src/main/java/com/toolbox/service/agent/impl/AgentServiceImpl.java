@@ -2,6 +2,7 @@ package com.toolbox.service.agent.impl;
 
 import com.toolbox.model.agent.ChatEvent;
 import com.toolbox.service.agent.*;
+import com.toolbox.service.store.FileStore;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.message.Msg;
@@ -28,16 +29,16 @@ public class AgentServiceImpl implements AgentService {
     private final ReActAgent docAgent;
     private final DocAgentToolkit toolkit;
     private final ConversationManager conversationManager;
-    private final FileManager fileManager;
+    private final FileStore fileStore;
     private final ErrorClassifier errorClassifier;
 
     public AgentServiceImpl(ReActAgent docAgent, DocAgentToolkit toolkit,
                             ConversationManager conversationManager,
-                            FileManager fileManager, ErrorClassifier errorClassifier) {
+                            FileStore fileStore, ErrorClassifier errorClassifier) {
         this.docAgent = docAgent;
         this.toolkit = toolkit;
         this.conversationManager = conversationManager;
-        this.fileManager = fileManager;
+        this.fileStore = fileStore;
         this.errorClassifier = errorClassifier;
     }
 
@@ -54,7 +55,7 @@ public class AgentServiceImpl implements AgentService {
 
         // 2. 文件处理: 存储用户上传的文件
         List<String> fileIds = new ArrayList<>();
-        if (files != null && fileIds.size() > 0) {
+        if (files != null && files.length > 0) {
             if (processFile(files, conversationId, eventConsumer, fileIds)) return conversationId;
         }
 
@@ -71,6 +72,9 @@ public class AgentServiceImpl implements AgentService {
         log.info("[AgentServiceImpl#handle] sending thinking event, input={}", agentInput);
         eventConsumer.accept(ChatEvent.thinking("正在分析你的需求..."));
         String finalConvId = conversationId;
+
+        // 设置当前对话 ID，供 @Tool 方法存储产物时使用
+        toolkit.setCurrentConversationId(conversationId);
 
         try {
             // 构建当前用户消息
@@ -93,7 +97,7 @@ public class AgentServiceImpl implements AgentService {
                     result != null && result.getTextContent() != null);
 
             // 7. 检查工具产物（如果有则推送 result 事件）
-            DocAgentToolkit.ToolResult toolResult = toolkit.getLastResult();
+            DocAgentToolkit.ToolResult toolResult = toolkit.getLastResult(finalConvId);
             if (toolResult != null) {
                 log.info("[AgentServiceImpl#handle] tool produced file: {} ({} bytes)",
                         toolResult.fileName(), toolResult.size());
@@ -114,6 +118,9 @@ public class AgentServiceImpl implements AgentService {
         } catch (Exception e) {
             log.error("[AgentServiceImpl#handle] agent run failed, convId={}", finalConvId, e);
             eventConsumer.accept(ChatEvent.error(errorClassifier.classify(e)));
+        } finally {
+            // 确保清理工具产物，防止异常/超时/取消场景下的内存泄漏
+            toolkit.clearResult(finalConvId);
         }
 
         log.info("[AgentServiceImpl#handle] sending done event");
@@ -125,7 +132,7 @@ public class AgentServiceImpl implements AgentService {
         for (MultipartFile f : files) {
             if (f != null && !f.isEmpty()) {
                 try {
-                    String fileId = fileManager.store(f);
+                    String fileId = fileStore.store(f);
                     fileIds.add(fileId);
                     log.info("[AgentServiceImpl#handle] file stored: {} → {}",
                             f.getOriginalFilename(), fileId);

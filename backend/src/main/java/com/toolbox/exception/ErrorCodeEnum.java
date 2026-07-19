@@ -61,6 +61,18 @@ public enum ErrorCodeEnum {
     /** PDF 压缩处理失败 */
     PDF_COMPRESS_PROCESS_ERROR(500, "PDF 压缩失败，请稍后重试"),
 
+    // ===== 图片转 PDF =====
+    /** 图片文件数量无效 */
+    IMAGE_FILE_COUNT_INVALID(400, "图片数量无效，需要 1-50 张"),
+    /** 单张图片文件过大 */
+    IMAGE_FILE_TOO_LARGE(400, "单张图片不能超过 5MB"),
+    /** 图片总大小超限 */
+    IMAGE_TOTAL_SIZE_EXCEEDED(400, "图片总大小不能超过 100MB"),
+    /** 图片格式不支持 */
+    IMAGE_FORMAT_UNSUPPORTED(400, "仅支持 JPG / PNG / WEBP / GIF 格式"),
+    /** 图片转 PDF 处理失败 */
+    IMAGE_TO_PDF_PROCESS_ERROR(500, "图片转 PDF 失败，请稍后重试"),
+
     // ===== PDF 编排 =====
     /** 编排计划为空 */
     PDF_ARRANGE_PLAN_EMPTY(400, "编排计划不能为空"),

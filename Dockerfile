@@ -6,6 +6,8 @@ FROM toolbox-base:1.0
 
 WORKDIR /app
 COPY backend/target/toolbox-1.0.0.jar app.jar
-EXPOSE 8899
+EXPOSE 8898
+
+ENV SERVER_PORT=8898
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

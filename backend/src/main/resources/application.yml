@@ -1,15 +1,28 @@
 server:
-  port: 8898
+  port: ${SERVER_PORT:8899}
 
 spring:
   application:
     name: toolbox
+  # Redis 仅按需启用（TOOLBOX_STORE_CONVERSATION/TOOLBOX_STORE_CONNECTION=redis 时）
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
   servlet:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
 
 toolbox:
+  # ============================================
+  # 存储类型配置 — local / redis / oss / jdbc
+  # 通过环境变量 TOOLBOX_STORE_XXX 可覆盖
+  # ============================================
+  store:
+    file-store: ${TOOLBOX_STORE_FILE:local}
+    conversation-store: ${TOOLBOX_STORE_CONVERSATION:redis}
+    connection-registry: ${TOOLBOX_STORE_CONNECTION:redis}
+
   libreoffice:
     # soffice 二进制路径
     binary-path: soffice
@@ -23,14 +36,25 @@ toolbox:
     llm-provider: deepseek
     llm-model: deepseek-v4-pro
     # API Key
-    llm-api-key: sk-7c4596ab33fd44798299a5332002bcfa
+    llm-api-key: ${LLM_API_KEY:REDACTED_KEY}
     # API Base URL（可选。内网部署时改为自己的 OpenAI 兼容代理地址）
-    llm-base-url:
+    llm-base-url: ${LLM_BASE_URL:}
     # SSE 连接管理
     sse:
       max-connections: 50
       heartbeat-interval-ms: 15000
       connection-timeout-ms: 7200000
+    # Redis 连接（仅在 TOOLBOX_STORE_CONVERSATION=redis 或 TOOLBOX_STORE_CONNECTION=redis 时需要）
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 2
     # 对话管理
     conversation:
       max-rounds: 50
@@ -38,7 +62,7 @@ toolbox:
     # 文件管理
     file:
       upload-dir: /tmp/toolbox-agent
-      cleanup-interval-minutes: 2400
+      cleanup-interval-minutes: 30
       max-file-size: 52428800
 
 logging:

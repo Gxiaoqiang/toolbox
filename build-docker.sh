@@ -97,5 +97,5 @@ if [[ "$MODE" == "app" || "$MODE" == "all" ]]; then
 fi
 echo ""
 echo " 服务器运行:"
-echo "   docker run -d --name toolbox -p 8899:8899 --restart unless-stopped ${APP_IMAGE}:${APP_TAG}"
+echo "   docker run -d --name toolbox -p 8898:8898 --restart unless-stopped ${APP_IMAGE}:${APP_TAG}"
 echo "============================================"

@@ -238,7 +238,7 @@ public void saveSupportLabor(String processInstanceId, List<SupportLaborModel> c
 所有代码分层遵循如下的代码分层结构，
 #### 2.4.1 代码分层
         1.网关层 负责切面的拦截或者server的filter 如果有
-        2.接口层 XxxxController 接收请求和对外输出，输出对象统一为VO对象。封装采用Spirng的ResponseEntity进行封装。接收的参数统一以xxxRequest进行命名。主要做基础参数校验，不要有太多的逻辑处理。
+        2.接口层 XxxxController 接收请求和对外输出，输出对象统一为VO对象。封装采用Spirng的ResponseEntity进行封装。接收的参数统一以xxxRequest进行命名。主要做基础参数校验，具体的逻辑处理不要在Controller层做，要在Service层进行处理。
         3.应用层 XxxxxBizService领域层的编排、事件订阅和事件发布。rpc的应用服务调用。
         4.领域层 XxxxDomainService 核心的业务逻辑都在领域层
         5.仓储层 隔离持久化和业务逻辑之间的耦合。接口放到领域层中，持久化层依赖领域层的仓储的接口。依赖导致。
@@ -263,8 +263,19 @@ public void saveSupportLabor(String processInstanceId, List<SupportLaborModel> c
  log.error("[className#methodName]  xxxxxx process exception  {},params={}",ex,ex.getMessage,xxxx);
  
 ```
+
 ### 2.6 代码通用要求
-    禁止代码中使用魔法值。
-    每个方法上都要添加注释，做好具体作用的说明。参考 2.3 方法注释、
-    每个类上也要做好注释。参考2.1 类注释、2.2 接口注释
+    1.禁止代码中使用魔法值。
+    2.每个方法上都要添加注释，做好具体作用的说明。参考 2.3 方法注释、
+    3.每个类上也要做好注释。参考2.1 类注释、2.2 接口注释
+    4.写代码或者方案的时候，需要考虑是否存在内存OOM或者泄漏的风险，比如：ThreadLocal必须在finally中删除；锁必须释放；不能一直向list或者其他存储中存放数据等等；
+    5.方法最好能做到复用，而不是什么都写一个新的，这个需要你对整个项目都要做一定的了解和分析
     
+### 2.7 事务使用
+    事务只能使用编程式，不能使用声明式事务。
+    mq发送消息不能放到事务中。
+
+### 2.8 方法定义
+    1.每个方法不要超过80行；
+    2.每个方法上都要添加注释，做好具体作用的说明。参考 2.3 方法注释、
+    3.
