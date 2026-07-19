@@ -410,7 +410,7 @@ onUnmounted(() => {
     <!-- ====== 右侧：结果区 ====== -->
     <div class="flex-1 flex flex-col min-w-0">
       <label class="text-xs font-semibold mb-2 flex-shrink-0" style="color: var(--text-secondary)">加密结果</label>
-      <div class="flex-1 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-3"
+      <div class="h-28 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-3 flex-shrink-0"
         style="border-color: var(--border-color); background: var(--bg-card)">
 
         <!-- 空闲 / 等待 -->

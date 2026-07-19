@@ -35,7 +35,7 @@ export function useAgentChat() {
   function initChat(): void {
     messages.value = [{
       role: 'assistant',
-      content: '你好！我是文档处理助手 🤖\n\n可以帮你处理以下文件：\n\n📄 文档转换\n· Word / WPS 文档转 PDF\n· Markdown 转 DOCX\n\n📑 PDF 处理\n· PDF 切分 / 合并 / 压缩 / 转图片\n· PDF 编排（排序/删页/旋转/插空白页）\n\n🖼️ 图片处理\n· 图片转 PDF（JPG/PNG/WEBP/GIF）\n\n请上传文件或直接告诉我你的需求 👇'
+      content: '你好！我是文档处理助手 🤖\n\n可以帮你处理以下文件：\n\n📄 文档转换\n· Word / WPS 文档转 PDF\n· Markdown 转 DOCX\n\n📑 PDF 处理\n· PDF 切分 / 合并 / 压缩 / 转图片\n· PDF 编排（排序/删页/旋转/插空白页）\n· PDF 加密（设置密码和权限保护）\n\n🖼️ 图片处理\n· 图片转 PDF（JPG/PNG/WEBP/GIF）\n\n请上传文件或直接告诉我你的需求 👇'
     }]
     state.value = 'idle'
   }
