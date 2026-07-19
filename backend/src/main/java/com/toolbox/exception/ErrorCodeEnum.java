@@ -87,6 +87,20 @@ public enum ErrorCodeEnum {
     /** PDF 编排处理失败 */
     PDF_ARRANGE_PROCESS_ERROR(500, "PDF 编排失败，请稍后重试"),
 
+    // ===== PDF 加密 =====
+    /** 密码为空 */
+    PDF_ENCRYPT_PASSWORD_EMPTY(400, "请至少填写一个密码"),
+    /** 两个密码相同 */
+    PDF_ENCRYPT_PASSWORD_SAME(400, "两个密码不能相同"),
+    /** 密码强度不足 */
+    PDF_ENCRYPT_PASSWORD_WEAK(400, "密码强度不足：至少6位，需包含数字和字母"),
+    /** 权限全开 */
+    PDF_ENCRYPT_PERMISSION_ALL_OPEN(400, "至少需要关闭一项权限"),
+    /** PDF 已加密 */
+    PDF_ENCRYPT_ALREADY_ENCRYPTED(400, "该 PDF 已加密，请先解密"),
+    /** PDF 加密处理失败 */
+    PDF_ENCRYPT_PROCESS_ERROR(500, "PDF 加密失败，请稍后重试"),
+
     // ===== Agent 文档处理助手 =====
     /** Agent LLM 调用超时 */
     AGENT_LLM_TIMEOUT(500, "AI 服务响应超时，请稍后重试"),

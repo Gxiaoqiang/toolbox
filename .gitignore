@@ -31,6 +31,10 @@ Thumbs.db
 .superpowers/
 docs/superpowers/
 
+# 分析产物（PRD、spec、tickets、prototype）— 仅本地使用
+.scratch/
+docs/
+
 # Temp
 /tmp/
 *.tmp

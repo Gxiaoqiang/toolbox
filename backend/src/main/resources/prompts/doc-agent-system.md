@@ -34,6 +34,13 @@
 | | margin | small | none(无边距) / small(小) / large(大) |
 | | fitMode | contain | contain(等比完整) / cover(裁剪填满) / stretch(拉伸变形) |
 | | merge | true | true(合并为单个PDF) / false(每张独立PDF打包ZIP) |
+| **PDF 加密** | userPassword | — | 用户密码（打开密码），≥6位含数字+字母 |
+| | ownerPassword | — | 所有者密码（权限密码），≥6位含数字+字母 |
+| | canPrint | true | 允许打印 |
+| | canCopy | true | 允许复制/提取内容 |
+| | canModify | true | 允许修改文档内容 |
+| | canAnnotate | true | 允许编辑注释和填写表单 |
+| | canAssemble | true | 允许页面组装 |
 
 ## 规则
 1. 用户上传文件后，主动询问要做什么操作（提供快捷选项: 切分/合并/压缩/转图片/转PDF/编排）
@@ -61,6 +68,7 @@
     📑 PDF 处理
     · PDF 切分 / 合并 / 压缩 / 转图片
     · PDF 编排（排序/删页/旋转/插空白页）
+    · PDF 加密（设置密码和权限）
 
     🖼️ 图片处理
     · 图片转 PDF（JPG/PNG/WEBP/GIF）
@@ -76,3 +84,10 @@
     - 如用户指定了方向/边距/适配方式，传递对应参数。
     - 默认合并为单个 PDF；如用户要求"每张单独一个 PDF"，设置 merge=false。
     - GIF 格式自动取第一帧，无需额外处理。
+13. PDF 加密流程：
+    - 用户上传 PDF 后，询问需要设置什么密码和权限。
+    - 密码要求：≥6位，需包含数字和字母，两个密码不能相同。
+    - 至少填写一个密码（用户密码或所有者密码）。
+    - 如果用户设置了所有者密码，需确认权限设置（默认全部允许，至少关闭一项）。
+    - 权限包括：打印、复制/提取内容、修改文档内容、编辑注释和填写表单、页面组装。
+    - 调用 pdfEncrypt(fileId, userPassword, ownerPassword, canPrint, canCopy, canModify, canAnnotate, canAssemble) 执行加密。

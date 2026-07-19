@@ -183,10 +183,11 @@ public class DocAgentConfig {
             FileStore fileStore,
             PdfArrangeService pdfArrangeService,
             ImageToPdfService imageToPdfService,
+            PdfEncryptService pdfEncryptService,
             ObjectMapper objectMapper) {
         return new DocAgentToolkit(pdfService, pdfCompressService, pdfToImageService,
                 documentService, markdownService, fileStore,
-                pdfArrangeService, imageToPdfService, objectMapper);
+                pdfArrangeService, imageToPdfService, pdfEncryptService, objectMapper);
     }
 
     @Bean

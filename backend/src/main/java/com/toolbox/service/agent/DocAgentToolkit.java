@@ -5,6 +5,7 @@ import com.toolbox.service.document.DocumentService;
 import com.toolbox.service.image.ImageToPdfService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
+import com.toolbox.service.pdf.PdfEncryptService;
 import com.toolbox.service.store.FileStore;
 import com.toolbox.model.common.PdfArrangeItem;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -48,6 +49,7 @@ public class DocAgentToolkit {
 
     private final PdfArrangeService pdfArrangeService;
     private final ImageToPdfService imageToPdfService;
+    private final PdfEncryptService pdfEncryptService;
     private final ObjectMapper objectMapper;
 
     /** 当前正在处理的对话 ID — AgentServiceImpl 调用前设置 */
@@ -61,6 +63,7 @@ public class DocAgentToolkit {
                            DocumentService documentService, MarkdownService markdownService,
                            FileStore fileStore, PdfArrangeService pdfArrangeService,
                            ImageToPdfService imageToPdfService,
+                           PdfEncryptService pdfEncryptService,
                            ObjectMapper objectMapper) {
         this.pdfService = pdfService;
         this.pdfCompressService = pdfCompressService;
@@ -70,6 +73,7 @@ public class DocAgentToolkit {
         this.fileStore = fileStore;
         this.pdfArrangeService = pdfArrangeService;
         this.imageToPdfService = imageToPdfService;
+        this.pdfEncryptService = pdfEncryptService;
         this.objectMapper = objectMapper;
     }
 
@@ -475,6 +479,61 @@ public class DocAgentToolkit {
     /**
      * 每张图片独立转 PDF 后打包为 ZIP
      */
+    @Tool(name = "pdfEncrypt", description = "对 PDF 文件设置密码和权限保护。支持用户密码（打开密码）和所有者密码（权限密码），可控制打印、复制、修改、注释、页面组装等权限")
+    public String pdfEncrypt(
+            @ToolParam(name = "fileId", required = true, description = "上传的 PDF 文件 ID")
+            String fileId,
+            @ToolParam(name = "userPassword", description = "用户密码（打开密码），≥6位含数字和字母")
+            String userPassword,
+            @ToolParam(name = "ownerPassword", description = "所有者密码（权限密码），≥6位含数字和字母")
+            String ownerPassword,
+            @ToolParam(name = "canPrint", description = "允许打印，默认 true")
+            Boolean canPrint,
+            @ToolParam(name = "canCopy", description = "允许复制/提取内容，默认 true")
+            Boolean canCopy,
+            @ToolParam(name = "canModify", description = "允许修改文档内容，默认 true")
+            Boolean canModify,
+            @ToolParam(name = "canAnnotate", description = "允许编辑注释和填写表单，默认 true")
+            Boolean canAnnotate,
+            @ToolParam(name = "canAssemble", description = "允许页面组装，默认 true")
+            Boolean canAssemble) {
+
+        if (canPrint == null) canPrint = true;
+        if (canCopy == null) canCopy = true;
+        if (canModify == null) canModify = true;
+        if (canAnnotate == null) canAnnotate = true;
+        if (canAssemble == null) canAssemble = true;
+
+        log.info("[DocAgentToolkit#pdfEncrypt] fileId={}, userPwd={}, ownerPwd={}, print={}, copy={}, modify={}, annotate={}, assemble={}",
+                fileId, mask(userPassword), mask(ownerPassword), canPrint, canCopy, canModify, canAnnotate, canAssemble);
+
+        byte[] pdfBytes = loadFile(fileId);
+        String baseName = extractBaseName(fileId);
+
+        try {
+            byte[] result = pdfEncryptService.encrypt(
+                    pdfBytes, userPassword, ownerPassword,
+                    canPrint, canCopy, canModify, canAnnotate, canAssemble);
+
+            String resultId = fileStore.store(result, baseName + "_encrypted.pdf");
+            conversationResults.put(currentConversationId, new ToolResult(resultId, baseName + "_encrypted.pdf", result.length));
+            return String.format("加密完成！文件 ID: %s, 大小: %.1fMB", resultId, result.length / (1024.0 * 1024.0));
+
+        } catch (BusinessException e) {
+            // 自愈：返回校验规则让 LLM 重试
+            return "加密失败: " + e.getMessage() + "\n\n"
+                    + "密码要求：≥6位，需包含数字和字母\n"
+                    + "约束：两个密码不能相同，至少填写一个，所有者密码存在时至少关闭一项权限";
+        } catch (Exception e) {
+            log.error("[DocAgentToolkit#pdfEncrypt] failed", e);
+            return "PDF 加密失败，请稍后重试。";
+        }
+    }
+
+    private static String mask(String s) {
+        if (s == null || s.isBlank()) return "(空)";
+        return "*".repeat(s.length());
+    }
     private byte[] buildZipOfPdfs(List<byte[]> imageBytesList, List<String> extensions,
                                    String orientation, String margin, String fitMode,
                                    String[] ids) throws Exception {
