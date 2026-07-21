@@ -28,6 +28,9 @@ public class LocalConnectionRegistry implements ConnectionRegistry {
     /** SSE 连接断开回调 — 用于清理对话数据，默认 no-op */
     private Consumer<String> onDisconnect = id -> {};
 
+    /** conversationId → processing flag（Agent 执行中标记） */
+    private final ConcurrentHashMap<String, Boolean> processingSet = new ConcurrentHashMap<>();
+
     public LocalConnectionRegistry(int maxConnections, long heartbeatIntervalMs,
                                     long connectionTimeoutMs) {
         this.maxConnections = maxConnections;
@@ -100,4 +103,19 @@ public class LocalConnectionRegistry implements ConnectionRegistry {
 
     @Override
     public long getConnectionTimeoutMs() { return connectionTimeoutMs; }
+
+    @Override
+    public void setProcessing(String conversationId) {
+        processingSet.put(conversationId, Boolean.TRUE);
+    }
+
+    @Override
+    public void clearProcessing(String conversationId) {
+        processingSet.remove(conversationId);
+    }
+
+    @Override
+    public boolean isProcessing(String conversationId) {
+        return processingSet.containsKey(conversationId);
+    }
 }

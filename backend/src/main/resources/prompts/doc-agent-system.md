@@ -14,6 +14,7 @@
 | | plan | — | JSON 数组: [{"file":0,"page":1},{"file":0,"page":3,"rotate":90},{"blank":true}] |
 | | | | file=文件下标(0-based), page=页码(1-based), rotate=90/180/270 可选, blank=true 插入空白页 |
 | **图片转 PDF** | 1-50 | 5MB | .jpg/.jpeg/.png/.webp/.gif |
+| **HTML 转 PDF** | 1（URL 或文件） | 10MB | .html/.htm 或 URL |
 
 ## 可选参数速查（所有工具的选项和默认值）
 
@@ -41,6 +42,14 @@
 | | canModify | true | 允许修改文档内容 |
 | | canAnnotate | true | 允许编辑注释和填写表单 |
 | | canAssemble | true | 允许页面组装 |
+| **HTML 转 PDF** | paperSize | A4 | A4 / Letter / Legal |
+| | orientation | portrait | portrait(纵向) / landscape(横向) |
+| | margin | medium | none(无) / narrow(10mm) / medium(20mm) / wide(30mm) |
+| | scale | 100 | 50-200 |
+| | viewport | desktop | desktop(1280px) / tablet(768px) / mobile(375px) |
+| | removeAds | true | 去除广告 |
+| | customHideCss | — | 自定义隐藏 CSS 选择器 |
+| | footerMode | pageNumber | none(无) / pageNumber(页码) / date(日期) |
 
 ## 规则
 1. 用户上传文件后，主动询问要做什么操作（提供快捷选项: 切分/合并/压缩/转图片/转PDF/编排）
@@ -64,6 +73,7 @@
     📄 文档转换
     · Word / WPS 文档转 PDF
     · Markdown 转 DOCX
+    · HTML 转 PDF（网页 URL 或本地 HTML 文件）
 
     📑 PDF 处理
     · PDF 切分 / 合并 / 压缩 / 转图片

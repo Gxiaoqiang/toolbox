@@ -101,6 +101,26 @@ public enum ErrorCodeEnum {
     /** PDF 加密处理失败 */
     PDF_ENCRYPT_PROCESS_ERROR(500, "PDF 加密失败，请稍后重试"),
 
+    // ===== HTML 转 PDF =====
+    /** URL 为空 */
+    HTML_TO_PDF_URL_EMPTY(400, "请输入网页 URL"),
+    /** URL 格式不合法 */
+    HTML_TO_PDF_URL_INVALID(400, "URL 格式不正确"),
+    /** URL 无法访问 */
+    HTML_TO_PDF_URL_UNREACHABLE(400, "URL 无法访问，请检查链接是否正确"),
+    /** HTML 文件为空 */
+    HTML_TO_PDF_FILE_EMPTY(400, "请选择有效的 HTML 文件"),
+    /** HTML 文件超过大小限制 */
+    HTML_TO_PDF_FILE_TOO_LARGE(400, "HTML 文件不能超过 10MB"),
+    /** 不是 HTML 文件 */
+    HTML_TO_PDF_FORMAT_INVALID(400, "仅支持 .html / .htm 格式"),
+    /** 渲染超时 */
+    HTML_TO_PDF_RENDER_TIMEOUT(500, "网页渲染超时，请稍后重试"),
+    /** 渲染失败 */
+    HTML_TO_PDF_RENDER_ERROR(500, "网页转 PDF 失败，请稍后重试"),
+    /** 服务繁忙 */
+    HTML_TO_PDF_BUSY(503, "当前转换任务较多，请稍后重试"),
+
     // ===== Agent 文档处理助手 =====
     /** Agent LLM 调用超时 */
     AGENT_LLM_TIMEOUT(500, "AI 服务响应超时，请稍后重试"),

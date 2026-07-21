@@ -48,7 +48,7 @@ toolbox:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:toolbox-redis-2026}
       timeout: 3000ms
       lettuce:
         pool:

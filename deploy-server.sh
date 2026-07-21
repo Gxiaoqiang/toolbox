@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # 离线服务器部署脚本（在服务器上执行）
-# 前置: toolbox-base-1.0.tar.gz 和 toolbox-lo-1.0.0.tar.gz 已传到 /opt/images/
+# 前置: toolbox-runtime-1.0.tar.gz 和 toolbox-lo-1.0.0.tar.gz 已传到 /opt/images/
 # ============================================================
 set -euo pipefail
 
@@ -27,18 +27,18 @@ else
 fi
 
 echo ""
-echo "===== 2/7 导入基础镜像（首次需要，后续跳过）====="
-BASE_TAR="/opt/images/toolbox-base-1.0.tar.gz"
-if [ -f "$BASE_TAR" ]; then
-    if ! docker image inspect toolbox-base:1.0 >/dev/null 2>&1; then
-        gunzip -k "$BASE_TAR" 2>/dev/null || true
-        docker load -i "${BASE_TAR%.gz}"
-        echo " ✓ 基础镜像已导入"
+echo "===== 2/7 导入运行镜像（首次需要，后续跳过）====="
+RUNTIME_TAR="/opt/images/toolbox-runtime-1.0.tar.gz"
+if [ -f "$RUNTIME_TAR" ]; then
+    if ! docker image inspect toolbox-runtime:1.1 >/dev/null 2>&1; then
+        gunzip -k "$RUNTIME_TAR" 2>/dev/null || true
+        docker load -i "${RUNTIME_TAR%.gz}"
+        echo " ✓ 运行镜像已导入"
     else
-        echo " ⊘ 基础镜像已存在，跳过"
+        echo " ⊘ 运行镜像已存在，跳过"
     fi
 else
-    echo " ⊘ 基础镜像文件不存在，跳过（如已导入过则无影响）"
+    echo " ⊘ 运行镜像文件不存在，跳过（如已导入过则无影响）"
 fi
 
 echo ""
@@ -99,10 +99,10 @@ echo " ✓ LibreOffice 优化配置已写入 ${LO_USER}"
 
 echo ""
 echo "===== 6/7 验证 ====="
-echo "基础镜像:"
-docker run --rm toolbox-base:1.0 soffice --version 2>/dev/null || echo "  ⚠ 基础镜像未就绪"
+echo "运行镜像:"
+docker run --rm toolbox-runtime:1.1 soffice --version 2>/dev/null || echo "  ⚠ 运行镜像未就绪"
 echo "中文字体:"
-docker run --rm toolbox-base:1.0 fc-list :lang=zh 2>/dev/null | wc -l | xargs echo "  数量:"
+docker run --rm toolbox-runtime:1.1 fc-list :lang=zh 2>/dev/null | wc -l | xargs echo "  数量:"
 
 echo ""
 echo "===== 7/7 启动服务 ====="

@@ -3,7 +3,7 @@ import type { ToolMeta } from '@/tools/types'
 export const meta: ToolMeta = {
   id: 'doc-to-pdf', name: '文档转 PDF',
   description: '将 .doc / .docx / .wps 文档转换为 PDF',
-  icon: 'file-text', category: 'file', requiresBackend: true,
+  icon: 'file-text', category: 'file', group: '转换工具包', requiresBackend: true,
 }
 </script>
 

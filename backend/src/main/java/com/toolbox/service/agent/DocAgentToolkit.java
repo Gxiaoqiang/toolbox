@@ -6,6 +6,8 @@ import com.toolbox.service.image.ImageToPdfService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
 import com.toolbox.service.pdf.PdfEncryptService;
+import com.toolbox.service.pdf.HtmlToPdfService;
+import com.toolbox.service.pdf.RenderContext;
 import com.toolbox.service.store.FileStore;
 import com.toolbox.model.common.PdfArrangeItem;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -50,6 +52,7 @@ public class DocAgentToolkit {
     private final PdfArrangeService pdfArrangeService;
     private final ImageToPdfService imageToPdfService;
     private final PdfEncryptService pdfEncryptService;
+    private final HtmlToPdfService htmlToPdfService;
     private final ObjectMapper objectMapper;
 
     /** 当前正在处理的对话 ID — AgentServiceImpl 调用前设置 */
@@ -64,6 +67,7 @@ public class DocAgentToolkit {
                            FileStore fileStore, PdfArrangeService pdfArrangeService,
                            ImageToPdfService imageToPdfService,
                            PdfEncryptService pdfEncryptService,
+                           HtmlToPdfService htmlToPdfService,
                            ObjectMapper objectMapper) {
         this.pdfService = pdfService;
         this.pdfCompressService = pdfCompressService;
@@ -74,6 +78,7 @@ public class DocAgentToolkit {
         this.pdfArrangeService = pdfArrangeService;
         this.imageToPdfService = imageToPdfService;
         this.pdfEncryptService = pdfEncryptService;
+        this.htmlToPdfService = htmlToPdfService;
         this.objectMapper = objectMapper;
     }
 
@@ -527,6 +532,76 @@ public class DocAgentToolkit {
         } catch (Exception e) {
             log.error("[DocAgentToolkit#pdfEncrypt] failed", e);
             return "PDF 加密失败，请稍后重试。";
+        }
+    }
+
+    @Tool(name = "htmlToPdf", description = "将网页 URL 或本地 HTML 文件转换为 PDF。支持去广告、自定义纸张/边距/视口等参数")
+    public String htmlToPdf(
+            @ToolParam(name = "url", description = "目标网页 URL（与 fileId 二选一）")
+            String url,
+            @ToolParam(name = "fileId", description = "上传的 HTML 文件 ID（与 url 二选一）")
+            String fileId,
+            @ToolParam(name = "paperSize", description = "纸张大小: A4/Letter/Legal，默认 A4")
+            String paperSize,
+            @ToolParam(name = "orientation", description = "方向: portrait(纵向)/landscape(横向)，默认 portrait")
+            String orientation,
+            @ToolParam(name = "margin", description = "边距: none(无)/narrow(窄)/medium(中)/wide(宽)，默认 medium")
+            String margin,
+            @ToolParam(name = "scale", description = "缩放比例 50-200，默认 100")
+            Integer scale,
+            @ToolParam(name = "viewport", description = "视口: desktop(1280px)/tablet(768px)/mobile(375px)，默认 desktop")
+            String viewport,
+            @ToolParam(name = "removeAds", description = "是否去广告，默认 true")
+            Boolean removeAds,
+            @ToolParam(name = "footerMode", description = "页脚: none(无)/pageNumber(页码)/date(日期)，默认 pageNumber")
+            String footerMode) {
+
+        if (paperSize == null || paperSize.isBlank()) paperSize = "A4";
+        if (orientation == null || orientation.isBlank()) orientation = "portrait";
+        if (margin == null || margin.isBlank()) margin = "medium";
+        if (scale == null) scale = 100;
+        if (viewport == null || viewport.isBlank()) viewport = "desktop";
+        if (removeAds == null) removeAds = true;
+        if (footerMode == null || footerMode.isBlank()) footerMode = "pageNumber";
+
+        // 参数校验：url 和 fileId 至少填一个
+        if ((url == null || url.isBlank()) && (fileId == null || fileId.isBlank())) {
+            return "错误: 请提供网页 URL 或上传 HTML 文件（url 和 fileId 至少填一个）";
+        }
+
+        log.info("[DocAgentToolkit#htmlToPdf] url={}, fileId={}, paper={}, orientation={}, viewport={}, removeAds={}",
+                url, fileId, paperSize, orientation, viewport, removeAds);
+
+        RenderContext ctx = new RenderContext();
+        ctx.setPaperSize(paperSize);
+        ctx.setOrientation(orientation);
+        ctx.setMargin(margin);
+        ctx.setScale(scale);
+        ctx.setViewport(viewport);
+        ctx.setRemoveAds(removeAds);
+        ctx.setFooterMode(footerMode);
+
+        try {
+            byte[] result;
+
+            if (url != null && !url.isBlank()) {
+                // URL 模式
+                result = htmlToPdfService.convertUrl(url.trim(), ctx);
+            } else {
+                // 文件模式
+                byte[] htmlBytes = loadFile(fileId.trim());
+                result = htmlToPdfService.convertHtml(htmlBytes, ctx);
+            }
+
+            String resultId = fileStore.store(result, "webpage.pdf");
+            conversationResults.put(currentConversationId, new ToolResult(resultId, "webpage.pdf", result.length));
+            return String.format("转换完成！文件 ID: %s, 大小: %.1fMB", resultId, result.length / (1024.0 * 1024.0));
+
+        } catch (BusinessException e) {
+            return "转换失败: " + e.getMessage();
+        } catch (Exception e) {
+            log.error("[DocAgentToolkit#htmlToPdf] conversion failed", e);
+            return "HTML 转 PDF 失败，请稍后重试。";
         }
     }
 

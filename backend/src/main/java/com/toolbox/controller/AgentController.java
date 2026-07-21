@@ -19,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -45,9 +44,6 @@ public class AgentController {
     private final ThreadPoolExecutor toolboxExecutor;
     private final ScheduledExecutorService heartbeatExecutor;
     private final EventPublisher eventPublisher;
-
-    /** 正在处理中的 conversationId 集合 — cancel 时校验用 */
-    private final ConcurrentHashMap<String, Boolean> activeConversations = new ConcurrentHashMap<>();
 
     public AgentController(AgentService agentService,
                            ConnectionRegistry connectionRegistry,
@@ -126,7 +122,7 @@ public class AgentController {
         String finalConvId = conversationId;
 
         toolboxExecutor.execute(() -> {
-            activeConversations.put(finalConvId, Boolean.TRUE);
+            connectionRegistry.setProcessing(finalConvId);
             try {
                 agentService.handle(message, files, finalConvId, event -> {
                     try {
@@ -153,7 +149,7 @@ public class AgentController {
                     emitter.completeWithError(ex);
                 }
             } finally {
-                activeConversations.remove(finalConvId);
+                connectionRegistry.clearProcessing(finalConvId);
                 connectionRegistry.unregister(finalConvId);
             }
         });
@@ -167,7 +163,7 @@ public class AgentController {
      */
     @PostMapping("/cancel")
     public ResponseEntity<?> cancel(@RequestParam("conversationId") String conversationId) {
-        if (!activeConversations.containsKey(conversationId)) {
+        if (!connectionRegistry.isProcessing(conversationId)) {
             log.info("[AgentController#cancel] conversation {} not active, skip", conversationId);
             return ResponseEntity.ok().build();
         }

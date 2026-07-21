@@ -58,6 +58,12 @@
             <artifactId>pdfbox</artifactId>
             <version>3.0.3</version>
         </dependency>
+        <!-- Playwright (HTML 转 PDF 渲染引擎) -->
+        <dependency>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>1.44.0</version>
+        </dependency>
         <!-- AgentScope AI Agent 框架 -->
         <dependency>
             <groupId>io.agentscope</groupId>
@@ -71,6 +77,37 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- driver-bundle ~163MB 含多平台原生驱动，排除后注入 Docker 镜像 -->
+                    <excludes>
+                        <exclude>
+                            <groupId>com.microsoft.playwright</groupId>
+                            <artifactId>driver-bundle</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <!-- 复制 Playwright driver-bundle 到 target/，供 Docker 构建注入 JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-driver-bundle</id>
+                        <phase>package</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.microsoft.playwright</groupId>
+                                    <artifactId>driver-bundle</artifactId>
+                                    <version>1.44.0</version>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <!-- frontend-maven-plugin: 构建时自动编译前端 (Task 13 集成阶段启用) -->
             <!--

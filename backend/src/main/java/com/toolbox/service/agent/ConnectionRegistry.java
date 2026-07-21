@@ -47,4 +47,19 @@ public interface ConnectionRegistry {
      * @return SseEmitter，未找到返回 null
      */
     SseEmitter getEmitter(String conversationId);
+
+    /**
+     * 标记对话为处理中（Agent 开始执行时调用）
+     */
+    void setProcessing(String conversationId);
+
+    /**
+     * 清除处理中标记（Agent 执行完成时调用）
+     */
+    void clearProcessing(String conversationId);
+
+    /**
+     * 查询对话是否正在处理中
+     */
+    boolean isProcessing(String conversationId);
 }

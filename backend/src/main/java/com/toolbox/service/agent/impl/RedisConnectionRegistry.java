@@ -65,6 +65,9 @@ public class RedisConnectionRegistry implements ConnectionRegistry {
     /** SSE 连接断开回调 */
     private Consumer<String> onDisconnect = id -> {};
 
+    /** conversationId → processing flag（Agent 执行中标记） */
+    private final ConcurrentHashMap<String, Boolean> processingSet = new ConcurrentHashMap<>();
+
     private final StringRedisTemplate redis;
     private final String instanceId;
 
@@ -183,5 +186,20 @@ public class RedisConnectionRegistry implements ConnectionRegistry {
             log.warn("[RedisConnectionRegistry#safeUnlock] unlock failed for {}: {}",
                     lockKey, e.getMessage());
         }
+    }
+
+    @Override
+    public void setProcessing(String conversationId) {
+        processingSet.put(conversationId, Boolean.TRUE);
+    }
+
+    @Override
+    public void clearProcessing(String conversationId) {
+        processingSet.remove(conversationId);
+    }
+
+    @Override
+    public boolean isProcessing(String conversationId) {
+        return processingSet.containsKey(conversationId);
     }
 }
