@@ -19,6 +19,8 @@ public class InMemoryConversationStore implements ConversationStore {
 
     private final ConcurrentHashMap<String, ConversationEntry> entries = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<ConversationMessage>> messages = new ConcurrentHashMap<>();
+    /** 请求结果缓存 — key = conversationId:fingerprint */
+    private final ConcurrentHashMap<String, CachedResult> resultCache = new ConcurrentHashMap<>();
 
     @Override
     public String create() {
@@ -65,11 +67,27 @@ public class InMemoryConversationStore implements ConversationStore {
     public void delete(String conversationId) {
         entries.remove(conversationId);
         messages.remove(conversationId);
+        // 清理该对话下的所有缓存结果
+        resultCache.keySet().removeIf(key -> key.startsWith(conversationId + ":"));
         log.info("[InMemoryConversationStore#delete] conversation deleted: {}", conversationId);
     }
 
     @Override
     public List<ConversationEntry> listActive() {
         return List.copyOf(entries.values());
+    }
+
+    @Override
+    public void cacheResult(String conversationId, String fingerprint, CachedResult result) {
+        String key = conversationId + ":" + fingerprint;
+        resultCache.put(key, result);
+        log.info("[InMemoryConversationStore#cacheResult] cached for conv={}, fingerprint={}",
+                conversationId, fingerprint);
+    }
+
+    @Override
+    public Optional<CachedResult> getCachedResult(String conversationId, String fingerprint) {
+        String key = conversationId + ":" + fingerprint;
+        return Optional.ofNullable(resultCache.get(key));
     }
 }

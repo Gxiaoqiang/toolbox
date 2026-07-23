@@ -77,7 +77,8 @@ export const meta: ToolMeta = {
           </svg>
           <span class="text-sm" style="color: var(--text-muted)">正在加载预览...</span>
         </div>
-        <!-- 预览内容 -->
+        <!-- 预览内容：Playwright 截图（URL模式） 或 iframe HTML（文件模式） -->
+        <img v-if="previewSrc" :src="previewSrc" class="w-full object-contain" style="min-height: 200px" alt="页面预览" />
         <iframe v-else-if="previewHtml" :srcdoc="previewHtml"
           class="w-full h-full border-0" style="min-height: 200px" sandbox="allow-same-origin"></iframe>
         <!-- 预览失败 -->
@@ -235,7 +236,7 @@ const activeTab = ref<'url' | 'file'>('url')
 
 // 切换 Tab 时重置预览
 watch(activeTab, () => {
-  previewHtml.value = null
+  revokePreviewSrc(); previewHtml.value = null
   previewLoading.value = false
   previewError.value = ''
 })
@@ -266,6 +267,7 @@ const resultPdf = ref<Blob | null>(null)
 
 // ===== 预览 =====
 const previewHtml = ref<string | null>(null)
+const previewSrc = ref<string | null>(null)  // blob URL for PNG screenshot
 const previewLoading = ref(false)
 const previewError = ref('')
 let previewDebounce: ReturnType<typeof setTimeout> | null = null
@@ -279,7 +281,7 @@ const previewLabel = computed(() => {
 watch(urlInput, (url) => {
   if (previewDebounce) clearTimeout(previewDebounce)
   if (activeTab.value !== 'url' || !url || !url.startsWith('http')) {
-    previewHtml.value = null
+    revokePreviewSrc(); previewHtml.value = null
     previewLoading.value = false
     return
   }
@@ -298,18 +300,18 @@ watch(htmlFile, (file) => {
       previewError.value = ''
     }
     reader.onerror = () => {
-      previewHtml.value = null
+      revokePreviewSrc(); previewHtml.value = null
       previewLoading.value = false
       previewError.value = '文件读取失败'
     }
     previewLoading.value = true
     reader.readAsText(file)
   } else {
-    previewHtml.value = null
+    revokePreviewSrc(); previewHtml.value = null
   }
 })
 
-// 通过后端代理抓取 URL 的 HTML 内容
+// 通过后端 Playwright 截图获取 URL 的预览图
 async function fetchPreview(url: string) {
   try {
     const resp = await fetch(`/api/pdf/preview-html?url=${encodeURIComponent(url)}`)
@@ -317,18 +319,29 @@ async function fetchPreview(url: string) {
       const err = await resp.json().catch(() => ({ message: '预览加载失败' }))
       throw new Error(err.message || '预览加载失败')
     }
-    previewHtml.value = await resp.text()
+    // 后端返回 PNG 截图，用 blob URL 展示
+    const blob = await resp.blob()
+    revokePreviewSrc()
+    previewSrc.value = URL.createObjectURL(blob)
     previewLoading.value = false
   } catch (e: any) {
-    previewHtml.value = null
+    revokePreviewSrc(); previewHtml.value = null
     previewLoading.value = false
     previewError.value = e.message || '无法加载页面预览'
+  }
+}
+
+function revokePreviewSrc() {
+  if (previewSrc.value) {
+    URL.revokeObjectURL(previewSrc.value)
+    previewSrc.value = null
   }
 }
 
 function clearPreview() {
   urlInput.value = ''
   htmlFile.value = null
+  revokePreviewSrc()
   previewHtml.value = null
   previewLoading.value = false
   previewError.value = ''

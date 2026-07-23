@@ -26,6 +26,7 @@ public class ChatEvent {
     private String fileName;
     private String fileId;
     private String size;
+    private String conversationId;
     private int progress;
 
     // ===== 工厂方法 =====
@@ -34,6 +35,14 @@ public class ChatEvent {
         ChatEvent e = new ChatEvent();
         e.type = Type.thinking.name();
         e.text = text;
+        return e;
+    }
+
+    public static ChatEvent thinking(String text, String conversationId) {
+        ChatEvent e = new ChatEvent();
+        e.type = Type.thinking.name();
+        e.text = text;
+        e.conversationId = conversationId;
         return e;
     }
 
@@ -105,5 +114,6 @@ public class ChatEvent {
     public String getFileName() { return fileName; }
     public String getFileId() { return fileId; }
     public String getSize() { return size; }
+    public String getConversationId() { return conversationId; }
     public int getProgress() { return progress; }
 }

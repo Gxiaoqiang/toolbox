@@ -12,7 +12,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 RUNTIME_IMAGE="toolbox-runtime"
 BASE_TAG="1.1"
 APP_IMAGE="toolbox-lo"
-APP_TAG="1.0.0"
+APP_TAG="1.1.0"
 
 usage() {
   echo "用法: bash build-docker.sh [base|app|all]"
@@ -37,7 +37,7 @@ if [[ "$MODE" == "app" || "$MODE" == "all" ]]; then
   fi
   echo "[pre] 构建后端 JAR..."
   cd "${PROJECT_ROOT}/backend"
-  mvn clean package -DskipTests -q
+  mvn clean package -P docker -DskipTests -q
   echo "  ✓ JAR: $(ls -lh target/toolbox-1.0.0.jar | awk '{print $5}')"
 fi
 
@@ -46,7 +46,7 @@ if [[ "$MODE" == "base" || "$MODE" == "all" ]]; then
   echo ""
   echo "===== 构建运行镜像 (LibreOffice + 字体) ====="
   cd "${PROJECT_ROOT}"
-  docker build --progress=plain -f base.Dockerfile -t ${RUNTIME_IMAGE}:${BASE_TAG} .
+  docker build --progress=plain -f runtime.Dockerfile -t ${RUNTIME_IMAGE}:${BASE_TAG} .
   echo "  ✓ 运行镜像: ${RUNTIME_IMAGE}:${BASE_TAG}"
   docker images ${RUNTIME_IMAGE}:${BASE_TAG}
 
@@ -97,5 +97,5 @@ if [[ "$MODE" == "app" || "$MODE" == "all" ]]; then
 fi
 echo ""
 echo " 服务器运行:"
-echo "   docker run -d --name toolbox -p 8898:8898 --restart unless-stopped ${APP_IMAGE}:${APP_TAG}"
+echo "   docker run -d --name toolbox -p 8899:8899 --restart unless-stopped ${APP_IMAGE}:${APP_TAG}"
 echo "============================================"

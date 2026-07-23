@@ -62,12 +62,11 @@ XCUEOF
 RUN chmod -R 755 /opt/lo-profile
 
 # ============================================================
-# Chromium + Playwright 系统依赖 — HTML/URL 转 PDF 渲染引擎
+# Playwright 系统依赖 — HTML/URL 转 PDF 渲染引擎
 # ============================================================
-# Playwright Java 库(已在 pom.xml 中)需要系统安装的 Chromium 浏览器
-# 安装 chromium-browser + headless 模式所需的全部依赖库
+# Playwright Java 库需要系统依赖库来运行其自带的 Chromium
+# 不使用系统 chromium-browser（Ubuntu 22.04 的 snap 包在 Docker 中无法运行）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium-browser \
     # Playwright headless 依赖（参考 https://playwright.dev/java/docs/docker）
     libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
@@ -75,10 +74,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcups2 libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 设置 Chromium 可执行路径，供 Playwright Java 使用
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
-# 禁用 Playwright 自动下载浏览器（使用系统安装的）
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# 预下载 Playwright Chromium 浏览器
+# 使用 driver-bundle 中的 driver 来下载浏览器
+RUN mkdir -p /tmp/pw-driver && \
+    # 创建临时脚本来下载浏览器
+    echo '#!/bin/bash' > /tmp/download-pw.sh && \
+    echo 'export PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright' >> /tmp/download-pw.sh && \
+    echo 'java -cp /tmp/pw-driver/* com.microsoft.playwright.impl.driver.jar.DriverJar install chromium 2>&1 || true' >> /tmp/download-pw.sh && \
+    chmod +x /tmp/download-pw.sh
 
-# 验证安装（--version 可能因 sandbox 限制返回非 0，用 which 确认即可）
-RUN soffice --version && fc-list :lang=zh | head -5 && which chromium-browser && echo "Chromium: OK"
+# 设置 Playwright 浏览器路径
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+
+# 验证安装
+RUN soffice --version && fc-list :lang=zh | head -5 && echo "Playwright deps: OK"

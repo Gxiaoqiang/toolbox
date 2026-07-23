@@ -9,6 +9,7 @@ export interface SseEvent {
   fileName?: string
   fileId?: string
   size?: string
+  conversationId?: string
   progress?: number
 }
 

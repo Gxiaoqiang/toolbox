@@ -112,6 +112,12 @@ export const meta: ToolMeta = {
             class="w-full mt-1 px-3 py-1.5 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
             style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
         </div>
+
+        <!-- 裁剪白边 -->
+        <label class="flex items-center gap-2 text-xs cursor-pointer" style="color: var(--text-primary)">
+          <input type="checkbox" v-model="trimMargin" class="w-4 h-4 rounded accent-indigo-500" />
+          裁剪白色边框
+        </label>
       </div>
     </div>
 
@@ -203,6 +209,7 @@ const dpi = ref(200)
 const format = ref('png')
 const quality = ref(0.9)
 const pageRange = ref('')
+const trimMargin = ref(false)
 
 const formatOptions = [
   { label: 'PNG（无损）', value: 'png' },
@@ -285,6 +292,9 @@ async function startConvert() {
     }
     if (pageRange.value.trim()) {
       formData.append('pageRange', pageRange.value.trim())
+    }
+    if (trimMargin.value) {
+      formData.append('trimMargin', 'true')
     }
 
     const baseUrl = window.location.origin

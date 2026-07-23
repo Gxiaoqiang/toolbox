@@ -49,4 +49,30 @@ public interface ConversationStore {
         long createdAt,
         long lastActiveAt
     ) {}
+
+    /**
+     * 缓存的请求结果 — 用于幂等性去重
+     */
+    record CachedResult(
+        String fileId,
+        String fileName,
+        long size,
+        String replyText,
+        long timestamp
+    ) {}
+
+    /**
+     * 缓存请求结果（按 conversationId + fingerprint 存储）
+     */
+    default void cacheResult(String conversationId, String fingerprint,
+                             CachedResult result) {
+        // 默认空实现，子类按需覆写
+    }
+
+    /**
+     * 查询缓存结果
+     */
+    default Optional<CachedResult> getCachedResult(String conversationId, String fingerprint) {
+        return Optional.empty();
+    }
 }

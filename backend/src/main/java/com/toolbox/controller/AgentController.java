@@ -62,10 +62,10 @@ public class AgentController {
         this.heartbeatExecutor = heartbeatExecutor;
         this.eventPublisher = eventPublisher;
 
-        // SSE 连接断开时自动清理对应对话数据，防止内存泄漏
+        // SSE 连接断开时保留对话数据，支持多轮会话
+        // 对话清理由 ConversationStore 的 TTL 机制处理（Redis 模式）或应用重启时清理（内存模式）
         this.connectionRegistry.setOnDisconnect(conversationId -> {
-            conversationManager.delete(conversationId);
-            log.info("[AgentController] cleaned up conversation on disconnect: {}", conversationId);
+            log.info("[AgentController] SSE disconnected, keeping conversation: {}", conversationId);
         });
     }
 

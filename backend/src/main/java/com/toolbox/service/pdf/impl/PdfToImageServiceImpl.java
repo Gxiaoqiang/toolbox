@@ -37,7 +37,8 @@ public class PdfToImageServiceImpl implements PdfToImageService {
 
     @Override
     public PdfToImageResult convertToImages(byte[] pdfBytes, String originalFilename,
-                                            int dpi, String format, float quality, String pageRange) {
+                                            int dpi, String format, float quality,
+                                            String pageRange, boolean trimMargin) {
         // 1. 参数校验
         validateParams(dpi, format, quality);
         ImageFormat imageFormat = ImageFormat.from(format);
@@ -49,9 +50,9 @@ public class PdfToImageServiceImpl implements PdfToImageService {
                 throw new BusinessException(ErrorCodeEnum.PDF_ENCRYPTED);
             }
             List<Integer> pageIndexes = parsePageRange(pageRange, doc.getNumberOfPages());
-            images = renderPages(doc, pageIndexes, dpi, imageFormat, quality);
-            LOGGER.info("[PdfToImageServiceImpl#convertToImages] done: {} pages -> {} images, format={}, dpi={}",
-                    doc.getNumberOfPages(), images.size(), imageFormat.getExtension(), dpi);
+            images = renderPages(doc, pageIndexes, dpi, imageFormat, quality, trimMargin);
+            LOGGER.info("[PdfToImageServiceImpl#convertToImages] done: {} pages -> {} images, format={}, dpi={}, trimMargin={}",
+                    doc.getNumberOfPages(), images.size(), imageFormat.getExtension(), dpi, trimMargin);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -70,12 +71,16 @@ public class PdfToImageServiceImpl implements PdfToImageService {
     // ======================== 渲染 ========================
 
     private List<byte[]> renderPages(PDDocument doc, List<Integer> indexes,
-                                     int dpi, ImageFormat format, float quality) {
+                                     int dpi, ImageFormat format, float quality,
+                                     boolean trimMargin) {
         PDFRenderer renderer = new PDFRenderer(doc);
         List<byte[]> result = new ArrayList<>(indexes.size());
         for (int idx : indexes) {
             try {
                 BufferedImage image = renderer.renderImageWithDPI(idx, dpi);
+                if (trimMargin) {
+                    image = trimWhiteBorders(image);
+                }
                 result.add(writeImage(image, format, quality));
             } catch (Exception e) {
                 LOGGER.error("[PdfToImageServiceImpl#renderPages] page {} failed", idx + 1, e);
@@ -83,6 +88,74 @@ public class PdfToImageServiceImpl implements PdfToImageService {
             }
         }
         return result;
+    }
+
+    /**
+     * 裁剪图片白色边框 — 从四边向内扫描，找到第一个非白色行/列后裁剪
+     * <p>
+     * 白色阈值：RGB 各分量 >= 250 视为白色
+     * 全白页：保持原图不变
+     */
+    private BufferedImage trimWhiteBorders(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int threshold = 250;
+
+        // 从上往下扫描
+        int top = 0;
+        for (int y = 0; y < height; y++) {
+            if (!isRowWhite(image, y, width, threshold)) { top = y; break; }
+            if (y == height - 1) return image; // 全白页，不裁剪
+        }
+
+        // 从下往上扫描
+        int bottom = height - 1;
+        for (int y = height - 1; y > top; y--) {
+            if (!isRowWhite(image, y, width, threshold)) { bottom = y; break; }
+        }
+
+        // 从左往右扫描
+        int left = 0;
+        for (int x = 0; x < width; x++) {
+            if (!isColWhite(image, x, height, threshold)) { left = x; break; }
+        }
+
+        // 从右往左扫描
+        int right = width - 1;
+        for (int x = width - 1; x > left; x--) {
+            if (!isColWhite(image, x, height, threshold)) { right = x; break; }
+        }
+
+        // 裁剪
+        int newWidth = right - left + 1;
+        int newHeight = bottom - top + 1;
+        if (newWidth <= 0 || newHeight <= 0) return image;
+
+        LOGGER.info("[PdfToImageServiceImpl#trimWhiteBorders] {}x{} -> {}x{} (crop: top={}, bottom={}, left={}, right={})",
+                width, height, newWidth, newHeight, top, height - 1 - bottom, left, width - 1 - right);
+        return image.getSubimage(left, top, newWidth, newHeight);
+    }
+
+    private boolean isRowWhite(BufferedImage image, int y, int width, int threshold) {
+        for (int x = 0; x < width; x++) {
+            int rgb = image.getRGB(x, y);
+            int r = (rgb >> 16) & 0xFF;
+            int g = (rgb >> 8) & 0xFF;
+            int b = rgb & 0xFF;
+            if (r < threshold || g < threshold || b < threshold) return false;
+        }
+        return true;
+    }
+
+    private boolean isColWhite(BufferedImage image, int x, int height, int threshold) {
+        for (int y = 0; y < height; y++) {
+            int rgb = image.getRGB(x, y);
+            int r = (rgb >> 16) & 0xFF;
+            int g = (rgb >> 8) & 0xFF;
+            int b = rgb & 0xFF;
+            if (r < threshold || g < threshold || b < threshold) return false;
+        }
+        return true;
     }
 
     // ======================== 参数校验 ========================

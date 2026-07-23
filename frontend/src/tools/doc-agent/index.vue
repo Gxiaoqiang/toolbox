@@ -26,8 +26,8 @@ function renderMarkdown(text: string): string {
 }
 
 const {
-  messages, state, inputDisabled,
-  initChat, sendMessage, cancelProcessing, downloadUrl
+  messages, state, inputDisabled, pendingDuplicate,
+  initChat, sendMessage, resolveDuplicate, cancelProcessing, downloadUrl
 } = useAgentChat()
 
 const inputText = ref('')
@@ -133,7 +133,10 @@ function formatSize(bytes: number): string {
           <span v-else-if="msg.role === 'assistant'" class="msg-text markdown-body"
             v-html="renderMarkdown(msg.content)" />
           <!-- 用户消息纯文本 -->
-          <span v-else class="msg-text">{{ msg.content }}</span>
+          <span v-else class="msg-text">
+            {{ msg.content }}
+            <span v-if="msg.isRedo" class="msg-redo-tag">🔄 重新执行</span>
+          </span>
 
           <!-- 结果卡片 -->
           <div v-if="msg.result" class="msg-result">
@@ -145,6 +148,27 @@ function formatSize(bytes: number): string {
         </div>
       </div>
     </div>
+
+    <!-- 重复操作确认弹窗 -->
+    <Teleport to="body">
+      <div v-if="pendingDuplicate" class="dup-overlay" @click.self="resolveDuplicate('cancel')">
+        <div class="dup-dialog">
+          <p class="dup-title">🔄 检测到重复操作</p>
+          <p class="dup-desc">您刚才已经执行过相同的操作，请选择：</p>
+          <div class="dup-actions">
+            <button class="dup-btn dup-btn--last" @click="resolveDuplicate('return-last')">
+              📦 返回上次结果
+            </button>
+            <button class="dup-btn dup-btn--redo" @click="resolveDuplicate('redo')">
+              🔁 重新处理
+            </button>
+            <button class="dup-btn dup-btn--cancel" @click="resolveDuplicate('cancel')">
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- 待发送文件 -->
     <div v-if="pendingFiles.length > 0" class="agent-pending">
@@ -238,6 +262,16 @@ function formatSize(bytes: number): string {
   padding: 5px 10px; border-radius: 8px;
   background: rgba(255,255,255,0.2);
   font-size: 12px; color: inherit;
+}
+/* 重复执行标记 */
+.msg-redo-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: rgba(255,255,255,0.25);
+  opacity: 0.85;
 }
 .msg-bubble--bot .msg-file-chip {
   background: var(--bg-main);
@@ -369,6 +403,45 @@ function formatSize(bytes: number): string {
   margin: 6px 0 0;
   user-select: none;
 }
+
+/* ===== 重复操作确认弹窗 ===== */
+.dup-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.45);
+}
+.dup-dialog {
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: 16px; padding: 24px 28px; max-width: 380px; width: 90%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.dup-title {
+  font-size: 16px; font-weight: 600; margin: 0 0 8px;
+  color: var(--text-primary);
+}
+.dup-desc {
+  font-size: 13px; margin: 0 0 18px; color: var(--text-secondary);
+}
+.dup-actions {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.dup-btn {
+  width: 100%; padding: 10px 0; border-radius: 10px;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-color); transition: all 0.15s;
+}
+.dup-btn--last {
+  background: var(--accent-color); color: #fff; border-color: var(--accent-color);
+}
+.dup-btn--last:hover { opacity: 0.9; }
+.dup-btn--redo {
+  background: var(--bg-main); color: var(--text-primary);
+}
+.dup-btn--redo:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.dup-btn--cancel {
+  background: transparent; color: var(--text-muted); border-color: transparent;
+}
+.dup-btn--cancel:hover { color: var(--text-primary); }
 
 /* ===== Markdown 渲染 ===== */
 .markdown-body :deep(table) {

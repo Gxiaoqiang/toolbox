@@ -18,6 +18,12 @@ type Orientation = 'portrait' | 'landscape'
 type Margin = 'none' | 'small' | 'large'
 type FitMode = 'contain' | 'cover' | 'stretch'
 
+// ===== 工具函数 =====
+function genUid(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return 'xxxx-xxxx-xxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16))
+}
+
 // ===== 常量 =====
 const MAX_FILES = 50
 const MAX_SINGLE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -85,7 +91,7 @@ function addFiles(files: FileList | File[]) {
       break
     }
     images.value.push({
-      uid: crypto.randomUUID(),
+      uid: genUid(),
       name: file.name,
       size: file.size,
       url: URL.createObjectURL(file),

@@ -21,5 +21,6 @@ public interface PdfToImageService {
      * @return 转换结果 DTO（包含二进制数据、Content-Type、文件名）
      */
     PdfToImageResult convertToImages(byte[] pdfBytes, String originalFilename,
-                                     int dpi, String format, float quality, String pageRange);
+                                     int dpi, String format, float quality,
+                                     String pageRange, boolean trimMargin);
 }

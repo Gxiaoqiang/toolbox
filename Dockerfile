@@ -1,22 +1,46 @@
 # ============================================================
-# 应用镜像 — 基于 toolbox-runtime（含 LibreOffice + Chromium + 字体）
-# 每次发版只改这一层，秒级构建
+# 阶段 1：下载 Chromium
+# ============================================================
+FROM ubuntu:22.04 AS chromium-downloader
+
+RUN apt-get update && apt-get install -y --no-install-recommends wget unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+# 下载 Playwright Chromium（跳过证书检查）
+# Playwright 1.44.0 需要 chromium-1117
+RUN mkdir -p /opt/chromium && \
+    cd /tmp && \
+    wget --no-check-certificate -q https://playwright.azureedge.net/builds/chromium/1117/chromium-linux.zip -O chromium.zip && \
+    unzip -q chromium.zip -d /opt/chromium/ && \
+    rm chromium.zip && \
+    echo "Chromium downloaded"
+
+# ============================================================
+# 阶段 2：应用镜像
 # ============================================================
 FROM toolbox-runtime:1.1
 
 WORKDIR /app
 COPY backend/target/toolbox-1.0.0.jar app.jar
 
-# Playwright driver-bundle（~163MB）不打包进 JAR，而是在镜像中注入
-# 日常更新只需传 app.jar（~75MB），driver-bundle 随镜像更新（极少变更）
+# Playwright driver-bundle
 RUN mkdir -p lib
 COPY backend/target/driver-bundle-1.44.0.jar lib/
 
-# 注入 driver-bundle 到 JAR 的 BOOT-INF/lib/
+# 注入 driver-bundle 到 JAR
 RUN jar xf app.jar BOOT-INF/lib/ && \
     cp lib/driver-bundle-1.44.0.jar BOOT-INF/lib/ && \
     jar uf0 app.jar BOOT-INF/lib/driver-bundle-1.44.0.jar && \
-    rm -rf BOOT-INF/ META-INF/ org/ && \
+    rm -rf BOOT-INF/ META-INF/ org/ lib/ && \
     echo "Injected driver-bundle into JAR"
+
+# 从阶段 1 复制 Chromium
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+RUN mkdir -p ${PLAYWRIGHT_BROWSERS_PATH}/chromium-1117
+COPY --from=chromium-downloader /opt/chromium/chrome-linux ${PLAYWRIGHT_BROWSERS_PATH}/chromium-1117/chrome-linux
+
+EXPOSE 8899
+ENV SERVER_PORT=8899
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -2,16 +2,14 @@ package com.toolbox.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toolbox.model.agent.ConversationStore;
-import com.toolbox.model.agent.impl.InMemoryConversationStore;
-import com.toolbox.model.agent.impl.RedisConversationStore;
 import com.toolbox.service.agent.*;
 import com.toolbox.service.agent.impl.*;
+import com.toolbox.service.agent.skill.*;
 import com.toolbox.service.document.DocumentService;
 import com.toolbox.service.image.ImageToPdfService;
 import com.toolbox.service.markdown.MarkdownService;
 import com.toolbox.service.pdf.*;
 import com.toolbox.service.store.FileStore;
-import com.toolbox.service.store.impl.LocalFileStore;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.tool.Toolkit;
@@ -30,6 +28,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -75,30 +74,50 @@ public class DocAgentConfig {
         return new ConversationManager(store, conversationMaxRounds);
     }
 
+    // ===== Skill 架构 Beans =====
+
+    @Bean
+    public ToolkitContext toolkitContext(FileStore fileStore) {
+        return new ToolkitContext(fileStore);
+    }
+
+    @Bean
+    public PdfSkill pdfSkill(ToolkitContext ctx, PdfService pdfService,
+                              PdfCompressService pdfCompressService,
+                              PdfToImageService pdfToImageService,
+                              PdfArrangeService pdfArrangeService,
+                              PdfEncryptService pdfEncryptService,
+                              ObjectMapper objectMapper) {
+        return new PdfSkill(ctx, pdfService, pdfCompressService,
+                pdfToImageService, pdfArrangeService, pdfEncryptService, objectMapper);
+    }
+
+    @Bean
+    public DocumentSkill documentSkill(ToolkitContext ctx, DocumentService documentService,
+                                        MarkdownService markdownService) {
+        return new DocumentSkill(ctx, documentService, markdownService);
+    }
+
+    @Bean
+    public ImageSkill imageSkill(ToolkitContext ctx, ImageToPdfService imageToPdfService) {
+        return new ImageSkill(ctx, imageToPdfService);
+    }
+
+    @Bean
+    public WebSkill webSkill(ToolkitContext ctx, HtmlToPdfService htmlToPdfService) {
+        return new WebSkill(ctx, htmlToPdfService);
+    }
+
+    @Bean
+    public SkillRouter skillRouter(List<AgentSkill> skills, Model agentModel) {
+        return new SkillRouter(skills, agentModel);
+    }
+
     // ===== Agent 核心 Beans =====
 
     @Bean
     public ErrorClassifier errorClassifier() {
         return new ErrorClassifier();
-    }
-
-    @Bean
-    public DocAgentToolkit docAgentToolkit(
-            PdfService pdfService,
-            PdfCompressService pdfCompressService,
-            PdfToImageService pdfToImageService,
-            DocumentService documentService,
-            MarkdownService markdownService,
-            FileStore fileStore,
-            PdfArrangeService pdfArrangeService,
-            ImageToPdfService imageToPdfService,
-            PdfEncryptService pdfEncryptService,
-            HtmlToPdfService htmlToPdfService,
-            ObjectMapper objectMapper) {
-        return new DocAgentToolkit(pdfService, pdfCompressService, pdfToImageService,
-                documentService, markdownService, fileStore,
-                pdfArrangeService, imageToPdfService, pdfEncryptService,
-                htmlToPdfService, objectMapper);
     }
 
     @Bean
@@ -127,33 +146,34 @@ public class DocAgentConfig {
                 .build();
     }
 
+    /**
+     * 默认 ReActAgent — 仅用于 AgentController.cancel() 中断请求
+     * 实际工具执行由 Skill Agent 动态构建
+     */
     @Bean
-    public Toolkit agentToolkit(DocAgentToolkit docAgentToolkit) {
-        Toolkit toolkit = new Toolkit();
-        toolkit.registerTool(docAgentToolkit);
-        log.info("[DocAgentConfig#agentToolkit] registered {} tools", toolkit.getToolNames().size());
-        return toolkit;
-    }
-
-    @Bean
-    public ReActAgent docAgent(Model agentModel, Toolkit agentToolkit) {
-        String sysPrompt = loadSystemPrompt();
+    public ReActAgent docAgent(Model agentModel) {
         return ReActAgent.builder()
                 .name("doc-assistant")
-                .sysPrompt(sysPrompt)
+                .sysPrompt("你是文档处理助手。")
                 .model(agentModel)
-                .toolkit(agentToolkit)
-                .maxIters(8)
+                .toolkit(new io.agentscope.core.tool.Toolkit())
+                .maxIters(1)
                 .build();
     }
 
     @Bean
-    public AgentService agentService(ReActAgent docAgent, DocAgentToolkit toolkit,
-                                      ConversationManager conversationManager,
+    public AgentService agentService(ConversationManager conversationManager,
+                                      ConversationStore conversationStore,
+                                      SkillRouter skillRouter,
+                                      List<AgentSkill> allSkills,
+                                      ToolkitContext toolkitContext,
+                                      Model agentModel,
                                       FileStore fileStore,
                                       ErrorClassifier errorClassifier) {
-        return new AgentServiceImpl(docAgent, toolkit, conversationManager,
-                fileStore, errorClassifier);
+        String basePrompt = loadSystemPrompt();
+        return new AgentServiceImpl(conversationManager, conversationStore,
+                skillRouter, allSkills, toolkitContext, agentModel,
+                basePrompt, fileStore, errorClassifier);
     }
 
     /** 配置的 baseUrl 优先，否则用默认值 */
@@ -172,14 +192,14 @@ public class DocAgentConfig {
     }
 
     /**
-     * 加载 classpath 下的系统提示词文件
+     * 加载 classpath 下的基础系统提示词文件
      */
     private String loadSystemPrompt() {
         try {
-            ClassPathResource resource = new ClassPathResource("prompts/doc-agent-system.md");
+            ClassPathResource resource = new ClassPathResource("prompts/doc-agent-base.md");
             return resource.getContentAsString(StandardCharsets.UTF_8);
         } catch (IOException e) {
-            log.error("[DocAgentConfig#loadSystemPrompt] failed to load system prompt, " +
+            log.error("[DocAgentConfig#loadSystemPrompt] failed to load base prompt, " +
                     "using fallback", e);
             return "你是文档处理助手，帮助用户处理 PDF/Word/WPS/Markdown 文件。";
         }

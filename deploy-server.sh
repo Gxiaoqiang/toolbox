@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # 离线服务器部署脚本（在服务器上执行）
-# 前置: toolbox-runtime-1.0.tar.gz 和 toolbox-lo-1.0.0.tar.gz 已传到 /opt/images/
+# 前置: toolbox-runtime-1.1.tar.gz 和 toolbox-lo-1.1.0.tar.gz 已传到 /opt/images/
 # ============================================================
 set -euo pipefail
 
@@ -28,7 +28,7 @@ fi
 
 echo ""
 echo "===== 2/7 导入运行镜像（首次需要，后续跳过）====="
-RUNTIME_TAR="/opt/images/toolbox-runtime-1.0.tar.gz"
+RUNTIME_TAR="/opt/images/toolbox-runtime-1.1.tar.gz"
 if [ -f "$RUNTIME_TAR" ]; then
     if ! docker image inspect toolbox-runtime:1.1 >/dev/null 2>&1; then
         gunzip -k "$RUNTIME_TAR" 2>/dev/null || true
@@ -43,7 +43,7 @@ fi
 
 echo ""
 echo "===== 3/7 导入应用镜像 ====="
-APP_TAR="/opt/images/toolbox-lo-1.0.0.tar.gz"
+APP_TAR="/opt/images/toolbox-lo-1.1.0.tar.gz"
 if [ -f "$APP_TAR" ]; then
     gunzip -k "$APP_TAR" 2>/dev/null || true
     docker load -i "${APP_TAR%.gz}"
@@ -56,14 +56,14 @@ fi
 echo ""
 echo "===== 4/7 准备 JAR 挂载目录 ====="
 JAR_DIR="/opt/toolbox"
-JAR_NAME="toolbox-1.0.0.jar"         # 保持 Maven 打包原名
+JAR_NAME="toolbox-1.0.0.jar"         # 保持 Maven 打包原名（artifactId-version.jar）
 JAR_FILE="${JAR_DIR}/${JAR_NAME}"
 mkdir -p "$JAR_DIR"
 
 # 首次部署：从镜像中提取 JAR 到宿主机
 if [ ! -f "$JAR_FILE" ]; then
     echo "首次部署，从镜像提取 JAR..."
-    docker run --rm --entrypoint cat toolbox-lo:1.0.0 /app/app.jar > "$JAR_FILE"
+    docker run --rm --entrypoint cat toolbox-lo:1.1.0 /app/app.jar > "$JAR_FILE"
     echo " ✓ JAR 已提取到 ${JAR_FILE}"
 else
     echo " ⊘ JAR 已存在，跳过提取"
@@ -108,14 +108,14 @@ echo ""
 echo "===== 7/7 启动服务 ====="
 docker run -d \
     --name toolbox \
-    -p 8898:8898 \
+    -p 8899:8899 \
     -v "${JAR_FILE}:/app/app.jar" \
     -v "${LO_PROFILE}:/opt/lo-profile" \
     -e LLM_API_KEY="${LLM_API_KEY:-}" \
     -e LLM_BASE_URL="${LLM_BASE_URL:-}" \
-    -e SERVER_PORT="${SERVER_PORT:-8898}" \
+    -e SERVER_PORT="${SERVER_PORT:-8899}" \
     --restart unless-stopped \
-    toolbox-lo:1.0.0
+    toolbox-lo:1.1.0
 
 echo ""
 echo "等待服务启动..."
@@ -125,7 +125,7 @@ docker logs --tail 20 toolbox
 echo ""
 echo "============================================"
 echo " ✅ 部署完成!"
-echo " 访问: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '服务器IP'):8898"
+echo " 访问: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '服务器IP'):8899"
 echo ""
 echo " 后续更新 JAR（无需重新打镜像，Maven 产物直接 scp）:"
 echo "   scp backend/target/${JAR_NAME} root@服务器:${JAR_FILE}"

@@ -52,6 +52,17 @@ public class ConversationManager {
     }
 
     /**
+     * 追加助手消息（含结果文件 ID，供后续请求引用）
+     */
+    public void appendAssistantMessage(String conversationId, String message,
+                                        List<String> resultFileIds) {
+        store.append(conversationId, new ConversationMessage(
+            "assistant", message,
+            resultFileIds != null ? resultFileIds : List.of(),
+            System.currentTimeMillis()));
+    }
+
+    /**
      * 获取对话历史（用于构建 LLM 上下文）
      */
     public List<ConversationMessage> getHistory(String conversationId) {

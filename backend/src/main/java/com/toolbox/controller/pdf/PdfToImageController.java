@@ -54,7 +54,8 @@ public class PdfToImageController {
             @RequestParam(value = "dpi", defaultValue = "" + ImageConvertConstant.DEFAULT_DPI) int dpi,
             @RequestParam(value = "format", defaultValue = "png") String format,
             @RequestParam(value = "quality", defaultValue = "" + ImageConvertConstant.DEFAULT_JPEG_QUALITY) float quality,
-            @RequestParam(value = "pageRange", required = false) String pageRange) {
+            @RequestParam(value = "pageRange", required = false) String pageRange,
+            @RequestParam(value = "trimMargin", defaultValue = "false") boolean trimMargin) {
 
         // 参数校验（Controller 职责）
         validateFile(file);
@@ -66,7 +67,7 @@ public class PdfToImageController {
         // 委托 Service 处理
         try {
             PdfToImageResult result = pdfToImageService.convertToImages(
-                    file.getBytes(), filename, dpi, format, quality, pageRange);
+                    file.getBytes(), filename, dpi, format, quality, pageRange, trimMargin);
 
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(result.getContentType()))

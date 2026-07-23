@@ -18,6 +18,23 @@ import java.util.concurrent.TimeUnit;
  * Key 设计:
  *   toolbox:conv:{id}          → Hash  {title, roundCount, createdAt, lastActiveAt}
  *   toolbox:conv:{id}:msgs     → List  [JSON messages]
+ *   toolbox:conv:{id}:cache:{fingerprint} → String (JSON CachedResult)
+ *   toolbox:conv:index         → Set   {id1, id2, ...}
+ *
+ * TTL: conversation TTL（分钟），每次 append 续期
+ * </pre>
+ *
+ * @author toolbox
+ * @since 2026-07-17
+ */
+
+/**
+ * Redis 对话存储 — ConversationStore 的 Redis 实现
+ *
+ * <pre>
+ * Key 设计:
+ *   toolbox:conv:{id}          → Hash  {title, roundCount, createdAt, lastActiveAt}
+ *   toolbox:conv:{id}:msgs     → List  [JSON messages]
  *   toolbox:conv:index         → Set   {id1, id2, ...}
  *
  * TTL: conversation TTL（分钟），每次 append 续期
@@ -32,6 +49,7 @@ public class RedisConversationStore implements ConversationStore {
 
     private static final String KEY_PREFIX = "toolbox:conv:";
     private static final String KEY_INDEX = "toolbox:conv:index";
+    private static final String CACHE_PREFIX = ":cache:";
     private static final String FIELD_TITLE = "title";
     private static final String FIELD_ROUND_COUNT = "roundCount";
     private static final String FIELD_CREATED_AT = "createdAt";
@@ -152,7 +170,13 @@ public class RedisConversationStore implements ConversationStore {
     @Override
     public void delete(String conversationId) {
         String key = KEY_PREFIX + conversationId;
+        // 删除对话元数据 + 消息列表
         redis.delete(List.of(key, key + ":msgs"));
+        // 删除该对话下的所有缓存结果（SCAN 匹配）
+        Set<String> cacheKeys = redis.keys(key + CACHE_PREFIX + "*");
+        if (cacheKeys != null && !cacheKeys.isEmpty()) {
+            redis.delete(cacheKeys);
+        }
         redis.opsForSet().remove(KEY_INDEX, conversationId);
         log.info("[RedisConversationStore#delete] conversation deleted: {}", conversationId);
     }
@@ -168,5 +192,31 @@ public class RedisConversationStore implements ConversationStore {
         }
         result.sort((a, b) -> Long.compare(b.lastActiveAt(), a.lastActiveAt()));
         return result;
+    }
+
+    @Override
+    public void cacheResult(String conversationId, String fingerprint, CachedResult result) {
+        String key = KEY_PREFIX + conversationId + CACHE_PREFIX + fingerprint;
+        try {
+            String json = objectMapper.writeValueAsString(result);
+            redis.opsForValue().set(key, json, ttl);
+            log.info("[RedisConversationStore#cacheResult] cached for conv={}, fingerprint={}",
+                    conversationId, fingerprint);
+        } catch (JsonProcessingException e) {
+            log.error("[RedisConversationStore#cacheResult] failed to serialize CachedResult", e);
+        }
+    }
+
+    @Override
+    public Optional<CachedResult> getCachedResult(String conversationId, String fingerprint) {
+        String key = KEY_PREFIX + conversationId + CACHE_PREFIX + fingerprint;
+        String json = redis.opsForValue().get(key);
+        if (json == null) return Optional.empty();
+        try {
+            return Optional.of(objectMapper.readValue(json, CachedResult.class));
+        } catch (JsonProcessingException e) {
+            log.warn("[RedisConversationStore#getCachedResult] failed to deserialize, key={}", key, e);
+            return Optional.empty();
+        }
     }
 }
