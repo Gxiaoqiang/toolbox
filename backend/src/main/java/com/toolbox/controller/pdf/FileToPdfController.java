@@ -14,6 +14,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * HTML 文件转 PDF 接口
@@ -115,6 +117,106 @@ public class FileToPdfController {
             LOGGER.error("[FileToPdfController#fileToPdf] error processing file", e);
             throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_RENDER_ERROR);
         }
+    }
+
+    /**
+     * 将 HTML 文件夹（含关联资源）转换为 PDF
+     *
+     * @param files        所有文件
+     * @param mainHtmlName 主 HTML 文件名
+     */
+    @PostMapping("/folder-to-pdf")
+    public ResponseEntity<byte[]> folderToPdf(
+            @RequestParam("files") MultipartFile[] files,
+            @RequestParam("mainHtml") String mainHtmlName,
+            @RequestParam(value = "paperSize", defaultValue = "A4") String paperSize,
+            @RequestParam(value = "orientation", defaultValue = "portrait") String orientation,
+            @RequestParam(value = "margin", defaultValue = "medium") String margin,
+            @RequestParam(value = "customMarginMm", defaultValue = "20") int customMarginMm,
+            @RequestParam(value = "scale", defaultValue = "100") int scale,
+            @RequestParam(value = "printBackground", defaultValue = "true") boolean printBackground,
+            @RequestParam(value = "removeAds", defaultValue = "true") boolean removeAds,
+            @RequestParam(value = "customHideCss", defaultValue = "") String customHideCss,
+            @RequestParam(value = "viewport", defaultValue = "desktop") String viewport,
+            @RequestParam(value = "customViewportWidth", defaultValue = "1280") int customViewportWidth,
+            @RequestParam(value = "headerText", defaultValue = "") String headerText,
+            @RequestParam(value = "footerMode", defaultValue = "pageNumber") String footerMode,
+            @RequestParam(value = "footerText", defaultValue = "") String footerText) {
+
+        validateFolder(files, mainHtmlName);
+        LOGGER.info("[FileToPdfController#folderToPdf] mainHtml={}, fileCount={}", mainHtmlName, files.length);
+
+        byte[] mainHtmlBytes = null;
+        Map<String, byte[]> assets = new HashMap<>();
+        for (MultipartFile file : files) {
+            String filename = file.getOriginalFilename();
+            if (filename == null) continue;
+            String normalized = filename.replace('\\', '/');
+            if (normalized.equalsIgnoreCase(mainHtmlName) || normalized.endsWith("/" + mainHtmlName)) {
+                try { mainHtmlBytes = file.getBytes(); } catch (Exception e) { throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_FILE_EMPTY); }
+            } else {
+                try { assets.put(normalized, file.getBytes()); } catch (Exception e) { LOGGER.warn("skip asset: {}", filename); }
+            }
+        }
+        if (mainHtmlBytes == null) throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_MAIN_HTML_NOT_FOUND);
+
+        RenderContext context = buildContext(paperSize, orientation, margin, customMarginMm, scale, printBackground, removeAds, customHideCss, viewport, customViewportWidth, headerText, footerMode, footerText);
+        try {
+            byte[] pdfBytes = htmlToPdfService.convertHtmlWithAssets(mainHtmlBytes, assets, context);
+            return pdfResponse(pdfBytes);
+        } catch (BusinessException e) { throw e; }
+        catch (Exception e) { LOGGER.error("[FileToPdfController#folderToPdf] error", e); throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_RENDER_ERROR); }
+    }
+
+    /** HTML 文件夹预览截图 */
+    @PostMapping("/preview-folder")
+    public ResponseEntity<byte[]> previewFolder(
+            @RequestParam("files") MultipartFile[] files,
+            @RequestParam("mainHtml") String mainHtmlName) {
+        validateFolder(files, mainHtmlName);
+        byte[] mainHtmlBytes = null;
+        Map<String, byte[]> assets = new HashMap<>();
+        for (MultipartFile file : files) {
+            String filename = file.getOriginalFilename();
+            if (filename == null) continue;
+            String normalized = filename.replace('\\', '/');
+            if (normalized.equalsIgnoreCase(mainHtmlName) || normalized.endsWith("/" + mainHtmlName)) {
+                try { mainHtmlBytes = file.getBytes(); } catch (Exception e) { throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_FILE_EMPTY); }
+            } else {
+                try { assets.put(normalized, file.getBytes()); } catch (Exception e) { LOGGER.warn("skip asset: {}", filename); }
+            }
+        }
+        if (mainHtmlBytes == null) throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_MAIN_HTML_NOT_FOUND);
+        try {
+            byte[] screenshot = htmlToPdfService.previewHtmlWithAssets(mainHtmlBytes, assets);
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(screenshot);
+        } catch (BusinessException e) { throw e; }
+        catch (Exception e) { LOGGER.error("[FileToPdfController#previewFolder] error", e); throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_RENDER_ERROR); }
+    }
+
+    private RenderContext buildContext(String paperSize, String orientation, String margin, int customMarginMm, int scale, boolean printBackground, boolean removeAds, String customHideCss, String viewport, int customViewportWidth, String headerText, String footerMode, String footerText) {
+        RenderContext ctx = new RenderContext();
+        ctx.setPaperSize(paperSize); ctx.setOrientation(orientation); ctx.setMargin(margin);
+        ctx.setCustomMarginMm(customMarginMm); ctx.setScale(scale); ctx.setPrintBackground(printBackground);
+        ctx.setRemoveAds(removeAds); ctx.setCustomHideCss(customHideCss); ctx.setViewport(viewport);
+        ctx.setCustomViewportWidth(customViewportWidth); ctx.setHeaderText(headerText);
+        ctx.setFooterMode(footerMode); ctx.setFooterText(footerText);
+        return ctx;
+    }
+
+    private ResponseEntity<byte[]> pdfResponse(byte[] bytes) {
+        String encoded = URLEncoder.encode("converted.pdf", StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded).body(bytes);
+    }
+
+    private void validateFolder(MultipartFile[] files, String mainHtmlName) {
+        if (files == null || files.length == 0) throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_FILE_EMPTY);
+        if (files.length > 100) throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_TOO_MANY_FILES);
+        if (mainHtmlName == null || mainHtmlName.isBlank()) throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_MAIN_HTML_NOT_FOUND);
+        long totalSize = 0;
+        for (MultipartFile f : files) totalSize += f.getSize();
+        if (totalSize > 50L * 1024 * 1024) throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_FOLDER_TOO_LARGE);
     }
 
     /**

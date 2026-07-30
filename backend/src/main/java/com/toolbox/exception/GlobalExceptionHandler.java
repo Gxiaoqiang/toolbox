@@ -9,6 +9,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器
@@ -52,6 +53,15 @@ public class GlobalExceptionHandler {
         R<Void> body = R.fail(ErrorCodeEnum.PDF_FILE_EMPTY.getCode(),
                 ErrorCodeEnum.PDF_FILE_EMPTY.getDesc());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * 处理静态资源未找到（预览 iframe 请求相对路径资源导致）
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Void> handleNoResourceFound(NoResourceFoundException e) {
+        LOGGER.debug("[GlobalExceptionHandler#handleNoResourceFound] {}", e.getResourcePath());
+        return ResponseEntity.notFound().build();
     }
 
     /**

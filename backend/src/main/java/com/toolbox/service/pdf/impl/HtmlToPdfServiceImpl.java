@@ -234,6 +234,14 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
                 page.addStyleTag(new Page.AddStyleTagOptions().setContent(hideCss));
             }
 
+            // 4.1 生成 PDF 前：临时去掉 <a> 的 href 属性，阻止 Chromium 打印引擎追加 URL 文字
+            page.evaluate("() => {" +
+                    "document.querySelectorAll('a[href]').forEach(a => {" +
+                    "    a.setAttribute('data-tb-href', a.getAttribute('href'));" +
+                    "    a.removeAttribute('href');" +
+                    "})" +
+                    "}");
+
             // 5. 生成 PDF
             Page.PdfOptions pdfOptions = buildPdfOptions(context);
             byte[] pdfBytes = page.pdf(pdfOptions);
@@ -271,8 +279,13 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
         // 纸张格式
         options.setFormat(context.getPaperSize());
 
-        // 方向
-        options.setLandscape("landscape".equals(context.getOrientation()));
+        // 方向：auto → ≥1000px 视口用横向；手动指定则遵循用户选择
+        boolean useLandscape = switch (context.getOrientation()) {
+            case "landscape" -> true;
+            case "portrait" -> false;
+            default -> context.getViewportWidth() >= 1000;
+        };
+        options.setLandscape(useLandscape);
 
         // 边距
         int marginMm = context.getMarginMm();

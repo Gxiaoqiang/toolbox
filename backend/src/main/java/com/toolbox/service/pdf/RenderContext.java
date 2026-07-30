@@ -11,8 +11,8 @@ public class RenderContext {
 
     /** 纸张大小: A4, Letter, Legal */
     private String paperSize = "A4";
-    /** 页面方向: portrait, landscape */
-    private String orientation = "portrait";
+    /** 页面方向: auto（自动）, portrait（纵向）, landscape（横向） */
+    private String orientation = "auto";
     /** 边距模式: none, narrow, medium, wide, custom */
     private String margin = "medium";
     /** 自定义边距毫米数 (margin=custom 时使用) */
