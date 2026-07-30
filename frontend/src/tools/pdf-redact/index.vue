@@ -399,8 +399,9 @@ async function loadFile(file: File) {
     totalPages.value = pdfDoc.numPages
     currentPage.value = 1
     stage.value = 'ready'
-    // 等待 Vue 完成 DOM 更新，确保 canvas 元素已挂载
+    // 等待 Vue DOM 更新 + 浏览器布局完成，确保 canvas ref 可用
     await nextTick()
+    await new Promise(resolve => requestAnimationFrame(resolve))
     await renderCurrentPage()
   } catch (e: any) {
     errorMsg.value = 'PDF 加载失败: ' + (e.message || '未知错误')
