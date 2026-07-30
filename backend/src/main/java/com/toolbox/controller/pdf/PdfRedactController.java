@@ -104,6 +104,41 @@ public class PdfRedactController {
         }
     }
 
+    /**
+     * 渲染 PDF 单页为 PNG 图片（解决 pdfjs-dist 无法渲染复杂 PDF 的降级方案）
+     *
+     * @param file     PDF 文件
+     * @param pageIndex 页码（0-based）
+     * @param dpi      渲染 DPI，默认 150
+     */
+    @PostMapping("/render-page")
+    public ResponseEntity<?> renderPage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("pageIndex") int pageIndex,
+            @RequestParam(value = "dpi", defaultValue = "150") int dpi) {
+
+        validateFile(file);
+
+        if (dpi < 72 || dpi > 300) {
+            dpi = 150;
+        }
+
+        String filename = file.getOriginalFilename();
+        LOGGER.info("[PdfRedactController#renderPage] file={}, pageIndex={}, dpi={}", filename, pageIndex, dpi);
+
+        try {
+            byte[] pngBytes = pdfRedactService.renderPage(file.getBytes(), pageIndex, dpi);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .body(new ByteArrayResource(pngBytes));
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("[PdfRedactController#renderPage] error: file={}", filename, e);
+            throw new BusinessException(ErrorCodeEnum.PDF_REDACT_PROCESS_ERROR);
+        }
+    }
+
     // ======================== 私有方法 ========================
 
     /**

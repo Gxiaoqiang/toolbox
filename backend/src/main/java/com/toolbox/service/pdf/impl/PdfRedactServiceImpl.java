@@ -248,4 +248,24 @@ public class PdfRedactServiceImpl implements PdfRedactService {
             return bos.toByteArray();
         }
     }
+
+    @Override
+    public byte[] renderPage(byte[] pdfBytes, int pageIndex, int dpi) {
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
+            if (doc.isEncrypted()) {
+                throw new BusinessException(ErrorCodeEnum.PDF_ENCRYPTED);
+            }
+            if (pageIndex < 0 || pageIndex >= doc.getNumberOfPages()) {
+                throw new BusinessException(ErrorCodeEnum.PDF_PAGE_OUT_OF_RANGE);
+            }
+            PDFRenderer renderer = new PDFRenderer(doc);
+            BufferedImage image = renderer.renderImageWithDPI(pageIndex, dpi);
+            return bufferedImageToByteArray(image);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (IOException e) {
+            LOGGER.error("[PdfRedactServiceImpl#renderPage] error: pageIndex={}", pageIndex, e);
+            throw new BusinessException(ErrorCodeEnum.PDF_REDACT_PROCESS_ERROR);
+        }
+    }
 }

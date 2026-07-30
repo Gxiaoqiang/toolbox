@@ -259,9 +259,11 @@ let dragOffsetY = 0
 let resizingRect: RectItem | null = null
 let resizeHandle = ''
 
-// 提交结果
+// 提交结果 + 渲染降级
 const resultBlob = ref<Blob | null>(null)
 const showConfirm = ref(false)
+let fileArrayBuffer: ArrayBuffer | null = null  // 保留文件数据用于后端降级渲染
+const pageImages: (HTMLImageElement | null)[] = []  // 后端渲染的图片（替代 canvas）
 
 // ======================== Canvas 引用管理 ========================
 
@@ -365,13 +367,15 @@ async function loadFile(file: File) {
   stage.value = 'processing'
 
   try {
-    const arrayBuffer = await file.arrayBuffer()
-    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    fileArrayBuffer = await file.arrayBuffer()
+    pdfDoc = await pdfjsLib.getDocument({ data: fileArrayBuffer }).promise
     totalPages.value = pdfDoc.numPages
     stage.value = 'ready'
     await nextTick()
     await new Promise(resolve => requestAnimationFrame(resolve))
     await renderAllPages()
+    // 检测 pdfjs-dist 渲染白页，自动走后端降级
+    await checkAndFallbackRender()
   } catch (e: any) {
     errorMsg.value = 'PDF 加载失败: ' + (e.message || '未知错误')
     stage.value = 'error'
@@ -433,6 +437,97 @@ async function renderAllPages() {
   }
 
   redrawAllOverlays()
+}
+
+/**
+ * 检测 pdfjs-dist 渲染的白页，自动调用后端 PDFBox 重新渲染
+ * 采样 5×5 像素网格，若 >90% 为白色则判定为空白页，走后端降级
+ */
+async function checkAndFallbackRender() {
+  if (!fileArrayBuffer || totalPages.value === 0) return
+  const blankPages: number[] = []
+
+  for (let i = 0; i < totalPages.value; i++) {
+    const canvas = getPdfCanvas(i)
+    if (!canvas) continue
+    const ctx = canvas.getContext('2d')
+    if (!ctx) continue
+
+    // 5×5 网格采样检测白页
+    const sampleSize = 5
+    let whiteCount = 0
+    const totalSamples = sampleSize * sampleSize
+    const stepX = canvas.width / (sampleSize + 1)
+    const stepY = canvas.height / (sampleSize + 1)
+
+    for (let sx = 1; sx <= sampleSize; sx++) {
+      for (let sy = 1; sy <= sampleSize; sy++) {
+        const pixel = ctx.getImageData(Math.round(sx * stepX), Math.round(sy * stepY), 1, 1).data
+        // R、G、B 都 > 240 视为白色
+        if (pixel[0] > 240 && pixel[1] > 240 && pixel[2] > 240) whiteCount++
+      }
+    }
+
+    // >90% 白色采样点 → 判定为空白页
+    if (whiteCount / totalSamples > 0.9) blankPages.push(i)
+  }
+
+  if (blankPages.length === 0) return
+
+  processingLabel.value = `后端渲染 ${blankPages.length} 页...`
+  stage.value = 'processing'
+
+  try {
+    const formData = new FormData()
+    formData.append('file', new Blob([fileArrayBuffer], { type: 'application/pdf' }))
+
+    for (const pageIndex of blankPages) {
+      const fd = new FormData()
+      fd.append('file', new Blob([fileArrayBuffer], { type: 'application/pdf' }))
+      fd.append('pageIndex', String(pageIndex))
+      fd.append('dpi', '150')
+
+      const resp = await fetch(`${window.location.origin}/api/pdf/render-page`, {
+        method: 'POST',
+        body: fd,
+      })
+
+      if (!resp.ok) continue
+
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const img = new Image()
+      img.onload = () => {
+        // 用后端渲染的图片替换 canvas 上的空白内容
+        const canvas = getPdfCanvas(pageIndex)
+        if (canvas) {
+          canvas.width = img.width
+          canvas.height = img.height
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0)
+          pageScales[pageIndex] = img.width / (img.width / pageScales[pageIndex] * canvas.width / img.width)
+          // 同步更新 overlay canvas 尺寸
+          const overlay = getOverlay(pageIndex)
+          if (overlay) {
+            overlay.width = img.width
+            overlay.height = img.height
+          }
+        }
+        pageImages[pageIndex] = img
+        // 重绘该页的方块覆盖层
+        drawOverlay(pageIndex)
+      }
+      img.src = url
+    }
+
+    // 等待图片加载完成再恢复状态
+    await new Promise(r => setTimeout(r, 1000))
+  } catch (e) {
+    console.warn('[pdf-redact] backend fallback render failed:', e)
+  }
+
+  stage.value = 'ready'
+  errorMsg.value = ''
 }
 
 /** 重绘所有页面的覆盖层 */
