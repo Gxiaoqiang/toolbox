@@ -61,6 +61,16 @@ public enum ErrorCodeEnum {
     /** PDF 压缩处理失败 */
     PDF_COMPRESS_PROCESS_ERROR(500, "PDF 压缩失败，请稍后重试"),
 
+    // ===== PDF 涂黑遮盖 =====
+    /** 遮盖矩形数据为空 */
+    PDF_REDACT_RECTS_EMPTY(400, "请至少添加一个遮盖方块"),
+    /** 遮盖矩形数据格式错误 */
+    PDF_REDACT_RECTS_FORMAT_ERROR(400, "遮盖方块数据格式不正确"),
+    /** 遮盖模式无效 */
+    PDF_REDACT_MODE_INVALID(400, "遮盖模式无效，仅支持 standard / deep"),
+    /** PDF 涂黑处理失败 */
+    PDF_REDACT_PROCESS_ERROR(500, "PDF 涂黑处理失败，请稍后重试"),
+
     // ===== 图片转 PDF =====
     /** 图片文件数量无效 */
     IMAGE_FILE_COUNT_INVALID(400, "图片数量无效，需要 1-50 张"),
