@@ -163,10 +163,10 @@ export const meta: ToolMeta = {
           class="px-2 py-1 text-xs border rounded-md"
           style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)">
           <option value="standard">标准遮盖（内容流覆盖）</option>
-          <option value="deep" :disabled="true">深度遮盖（敬请期待）</option>
+          <option value="deep">深度遮盖（页面转图片，彻底清除）</option>
         </select>
-        <span class="text-[10px]" style="color: var(--text-muted)">
-          提示：选中方块后可用 Delete 键删除，拖拽四角可缩放
+        <span class="text-[10px]" :style="redactMode === 'deep' ? { color: '#d97706' } : { color: 'var(--text-muted)' }">
+          {{ redactMode === 'deep' ? '⚠ 全页转为图片，文字将不可选中' : '提示：选中方块后可用 Delete 键删除，拖拽四角可缩放' }}
         </span>
       </div>
 
@@ -211,7 +211,7 @@ export const meta: ToolMeta = {
             </li>
           </ul>
           <p class="text-xs mb-4" style="color: var(--text-muted)">
-            遮盖模式：标准遮盖（内容流覆盖）
+            遮盖模式：{{ redactMode === 'standard' ? '标准遮盖（内容流覆盖）' : '深度遮盖（页面转图片，彻底清除）' }}
           </p>
           <div class="flex justify-end gap-2">
             <button @click="showConfirm = false"
@@ -228,7 +228,7 @@ export const meta: ToolMeta = {
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 
 // ======================== Worker 配置 ========================
@@ -399,6 +399,8 @@ async function loadFile(file: File) {
     totalPages.value = pdfDoc.numPages
     currentPage.value = 1
     stage.value = 'ready'
+    // 等待 Vue 完成 DOM 更新，确保 canvas 元素已挂载
+    await nextTick()
     await renderCurrentPage()
   } catch (e: any) {
     errorMsg.value = 'PDF 加载失败: ' + (e.message || '未知错误')
@@ -530,6 +532,7 @@ function onMouseDown(e: MouseEvent) {
   // 1. 检查缩放手柄
   const handleHit = findHandleAt(pos.x, pos.y)
   if (handleHit) {
+    pushHistory()  // 缩放前保存快照
     resizingRect = handleHit.rect
     resizeHandle = handleHit.handle
     drawStartX = pos.x
@@ -537,9 +540,10 @@ function onMouseDown(e: MouseEvent) {
     return
   }
 
-  // 2. 检查方块点击
+  // 2. 检查方块点击（拖动移动）
   const hitRect = findRectAt(pos.x, pos.y)
   if (hitRect) {
+    pushHistory()  // 拖动前保存快照，确保 undo 能还原位置
     selectedRectId.value = hitRect.id
     draggingRect = hitRect
     const c = toCanvasCoords(hitRect)
@@ -678,14 +682,23 @@ function deleteSelected() {
 
 // ======================== Undo / Redo ========================
 
+/** 深度拷贝 pageRects Map（数组也拷贝，确保历史快照独立） */
+function clonePageRects(source: Map<number, RectItem[]>): Map<number, RectItem[]> {
+  const copy = new Map<number, RectItem[]>()
+  for (const [page, rects] of source.entries()) {
+    copy.set(page, rects.map(r => ({ ...r })))
+  }
+  return copy
+}
+
 function pushHistory() {
-  undoStack.value.push(new Map(pageRects.value))
+  undoStack.value.push(clonePageRects(pageRects.value))
   redoStack.value = []
 }
 
 function undo() {
   if (!canUndo.value) return
-  redoStack.value.push(new Map(pageRects.value))
+  redoStack.value.push(clonePageRects(pageRects.value))
   pageRects.value = undoStack.value.pop()!
   selectedRectId.value = null
   drawOverlay()
@@ -693,7 +706,7 @@ function undo() {
 
 function redo() {
   if (!canRedo.value) return
-  undoStack.value.push(new Map(pageRects.value))
+  undoStack.value.push(clonePageRects(pageRects.value))
   pageRects.value = redoStack.value.pop()!
   selectedRectId.value = null
   drawOverlay()
