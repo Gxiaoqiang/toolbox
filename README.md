@@ -7,7 +7,7 @@
 
 启动后访问 `http://localhost:8899`
 
-## 功能清单（20 个工具）
+## 功能清单（21 个工具）
 
 ### 📄 文档转换
 
@@ -15,6 +15,7 @@
 |------|------|------|
 | **Markdown 工具箱** | Markdown 实时预览（GFM）、快捷插入、语法速查、导出 HTML、导出 DOCX | ✓ |
 | **文档转 PDF** | .doc / .docx / .wps → PDF 批量转换（最多 5 个），ZIP 下载 | ✓ |
+| **HTML 转 PDF** | 网页 URL 或本地 HTML 文件 → PDF，Playwright 完整渲染 | ✓ |
 
 ### 📑 PDF 处理
 
@@ -25,6 +26,7 @@
 | **PDF 压缩** | 5 级压缩（极度压缩 → 极限画质），显示压缩比 | ✓ |
 | **PDF 转图片** | PDF 逐页转 PNG/JPEG/WEBP，可调 DPI（72-600），ZIP 下载 | ✓ |
 | **PDF 编排** | 自由编排 PDF 页面——拖拽排序、删除、旋转、插入空白页、合并多文件 | ✓ |
+| **PDF 加密** | 添加密码保护，支持用户密码和所有者密码，控制打印/复制/修改权限 | ✓ |
 
 ### 🖼️ 图片处理
 
@@ -300,6 +302,10 @@ const meta: ToolMeta = {
 | POST | `/api/pdf/arrange` | PDF 编排（页面排序/删除/旋转/插入空白页） |
 | POST | `/api/image/to-pdf` | 图片转 PDF（JPG/PNG/WEBP/GIF） |
 | POST | `/api/document/convert-to-pdf` | 文档转 PDF（批量最多 5 个），ZIP 下载 |
+| POST | `/api/pdf/url-to-pdf` | URL 网页 → PDF |
+| POST | `/api/pdf/file-to-pdf` | HTML 文件 → PDF |
+| GET  | `/api/pdf/preview-html` | 网页 URL 预览截图（Playwright） |
+| POST | `/api/pdf/encrypt` | PDF 加密（密码 + 权限控制） |
 | POST | `/api/agent/chat` | AI 文档助手对话（SSE 流式响应） |
 
 ### 统一响应格式
