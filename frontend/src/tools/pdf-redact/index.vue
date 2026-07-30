@@ -384,8 +384,10 @@ async function renderAllPages() {
   if (!pdfDoc) return
 
   const containerWidth = (workspaceRef.value?.clientWidth || 800) - 80
+  const errors: string[] = []
 
   for (let i = 0; i < totalPages.value; i++) {
+    processingLabel.value = `渲染中 ${i + 1}/${totalPages.value} 页...`
     const page = await pdfDoc.getPage(i + 1)
     const baseViewport = page.getViewport({ scale: 1 })
     const scale = containerWidth / baseViewport.width
@@ -401,7 +403,33 @@ async function renderAllPages() {
     overlayCanvas.width = viewport.width
     overlayCanvas.height = viewport.height
 
-    await page.render({ canvas: pdfCanvas, viewport }).promise
+    try {
+      // 单页渲染超时 30s，防止巨型嵌入图像导致永久 hang
+      await Promise.race([
+        page.render({ canvas: pdfCanvas, viewport }).promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('render timeout')), 30000)),
+      ])
+    } catch (e: any) {
+      errors.push(`第 ${i + 1} 页: ${e.message || '未知错误'}`)
+      // 渲染失败时显示提示文字在 canvas 上
+      const ctx = pdfCanvas.getContext('2d')
+      if (ctx) {
+        ctx.fillStyle = '#fef2f2'
+        ctx.fillRect(0, 0, pdfCanvas.width, pdfCanvas.height)
+        ctx.fillStyle = '#ef4444'
+        ctx.font = '14px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('页面渲染失败', pdfCanvas.width / 2, pdfCanvas.height / 2)
+        ctx.fillText(e.message || '', pdfCanvas.width / 2, pdfCanvas.height / 2 + 20)
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    errorMsg.value = `部分页面渲染失败: ${errors.join('; ')}`
+    stage.value = 'error'
+  } else {
+    stage.value = 'ready'
   }
 
   redrawAllOverlays()
