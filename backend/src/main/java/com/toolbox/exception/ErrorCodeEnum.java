@@ -120,6 +120,9 @@ public enum ErrorCodeEnum {
     HTML_TO_PDF_RENDER_ERROR(500, "网页转 PDF 失败，请稍后重试"),
     /** 服务繁忙 */
     HTML_TO_PDF_BUSY(503, "当前转换任务较多，请稍后重试"),
+    HTML_TO_PDF_MAIN_HTML_NOT_FOUND(400, "未找到主 HTML 文件"),
+    HTML_TO_PDF_TOO_MANY_FILES(400, "文件数量不能超过 100 个"),
+    HTML_TO_PDF_FOLDER_TOO_LARGE(400, "文件夹总大小不能超过 50MB"),
 
     // ===== Agent 文档处理助手 =====
     /** Agent LLM 调用超时 */

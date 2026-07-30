@@ -14,8 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Paths;
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -128,6 +131,55 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
     public byte[] previewHtml(byte[] htmlBytes) {
         validateHtml(htmlBytes);
         return doScreenshot(null, htmlBytes);
+    }
+
+    @Override
+    public byte[] convertHtmlWithAssets(byte[] htmlBytes, Map<String, byte[]> assets, RenderContext context) {
+        validateHtml(htmlBytes);
+        LOGGER.info("[HtmlToPdfServiceImpl#convertHtmlWithAssets] htmlSize={}, assetCount={}, paper={}",
+                htmlBytes.length, assets.size(), context.getPaperSize());
+        Path tempDir = null;
+        try {
+            tempDir = Files.createTempDirectory("html-to-pdf-");
+            writeFilesToTempDir(tempDir, htmlBytes, assets);
+            Path mainFile = tempDir.resolve("index.html");
+            return doRender("file://" + mainFile.toAbsolutePath(), null, context);
+        } catch (BusinessException e) { throw e; }
+        catch (Exception e) { LOGGER.error("[HtmlToPdfServiceImpl#convertHtmlWithAssets] failed", e); throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_RENDER_ERROR); }
+        finally { deleteTempDir(tempDir); }
+    }
+
+    @Override
+    public byte[] previewHtmlWithAssets(byte[] htmlBytes, Map<String, byte[]> assets) {
+        validateHtml(htmlBytes);
+        Path tempDir = null;
+        try {
+            tempDir = Files.createTempDirectory("html-to-pdf-");
+            writeFilesToTempDir(tempDir, htmlBytes, assets);
+            Path mainFile = tempDir.resolve("index.html");
+            return doScreenshot("file://" + mainFile.toAbsolutePath(), null);
+        } catch (BusinessException e) { throw e; }
+        catch (Exception e) { LOGGER.error("[HtmlToPdfServiceImpl#previewHtmlWithAssets] failed", e); throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_RENDER_ERROR); }
+        finally { deleteTempDir(tempDir); }
+    }
+
+    private void writeFilesToTempDir(Path tempDir, byte[] htmlBytes, Map<String, byte[]> assets) throws IOException {
+        Files.write(tempDir.resolve("index.html"), htmlBytes);
+        for (Map.Entry<String, byte[]> entry : assets.entrySet()) {
+            String relativePath = entry.getKey();
+            if (relativePath.contains("..") || relativePath.startsWith("/")) { LOGGER.warn("skip: {}", relativePath); continue; }
+            Path assetPath = tempDir.resolve(relativePath);
+            Files.createDirectories(assetPath.getParent());
+            Files.write(assetPath, entry.getValue());
+        }
+    }
+
+    private void deleteTempDir(Path dir) {
+        if (dir == null) return;
+        try { Files.walkFileTree(dir, new SimpleFileVisitor<>() {
+            @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException { Files.delete(file); return FileVisitResult.CONTINUE; }
+            @Override public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException { Files.delete(d); return FileVisitResult.CONTINUE; }
+        }); } catch (Exception e) { LOGGER.warn("delete failed: {}", dir, e); }
     }
 
     /**

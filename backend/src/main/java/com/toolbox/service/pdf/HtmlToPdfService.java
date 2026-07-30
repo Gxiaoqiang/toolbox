@@ -1,5 +1,7 @@
 package com.toolbox.service.pdf;
 
+import java.util.Map;
+
 /**
  * HTML 转 PDF 服务接口
  *
@@ -10,36 +12,32 @@ public interface HtmlToPdfService {
 
     /**
      * 将 URL 对应的网页转换为 PDF
-     *
-     * @param url     目标网页 URL
-     * @param context 渲染上下文（纸张、边距、视口等参数）
-     * @return PDF 文件字节数组
      */
     byte[] convertUrl(String url, RenderContext context);
 
     /**
      * 将本地 HTML 文件内容转换为 PDF
-     *
-     * @param htmlBytes HTML 文件字节数组
-     * @param context   渲染上下文
-     * @return PDF 文件字节数组
      */
     byte[] convertHtml(byte[] htmlBytes, RenderContext context);
 
+    /**
+     * 将 HTML 及其关联资源（CSS/JS/图片）转换为 PDF
+     * 通过临时目录 + file:// 协议导航，Playwright 正确解析相对路径
+     */
+    byte[] convertHtmlWithAssets(byte[] htmlBytes, Map<String, byte[]> assets, RenderContext context);
 
     /**
-     * 使用 Playwright 截图预览 URL——完整渲染含图片/CSS/JS，替代 HTTP 抓取的 getUrlBody()
-     *
-     * @param url 目标网页 URL
-     * @return PNG 格式截图字节数组
+     * 使用 Playwright 截图预览 URL
      */
     byte[] previewUrl(String url);
 
     /**
-     * 使用 Playwright 截图预览 HTML——完整渲染含图片/CSS/JS
-     *
-     * @param htmlBytes HTML 文件字节数组
-     * @return PNG 格式截图字节数组
+     * 使用 Playwright 截图预览 HTML
      */
     byte[] previewHtml(byte[] htmlBytes);
+
+    /**
+     * 使用 Playwright 截图预览 HTML 及其关联资源
+     */
+    byte[] previewHtmlWithAssets(byte[] htmlBytes, Map<String, byte[]> assets);
 }
