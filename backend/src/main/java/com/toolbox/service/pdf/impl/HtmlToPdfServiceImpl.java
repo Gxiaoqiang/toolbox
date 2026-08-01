@@ -5,6 +5,7 @@ import com.microsoft.playwright.options.Margin;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.url.UrlSecurityValidator;
 import com.toolbox.service.pdf.AdFilterService;
 import com.toolbox.service.pdf.HtmlToPdfService;
 import com.toolbox.service.pdf.RenderContext;
@@ -12,6 +13,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -41,9 +43,12 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
 
     private final AdFilterService adFilterService;
 
+    @Value("${toolbox.playwright.max-concurrent:2}")
+    private int maxConcurrent;
+
     private Playwright playwright;
     private Browser browser;
-    private final Semaphore semaphore = new Semaphore(1);
+    private volatile Semaphore semaphore;
 
     /**
      * 构造方法
@@ -55,11 +60,26 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
     }
 
     /**
+     * 获取并发信号量（延迟初始化，兼容非 Spring 构造的场景）
+     */
+    private Semaphore getSemaphore() {
+        if (semaphore == null) {
+            synchronized (this) {
+                if (semaphore == null) {
+                    semaphore = new Semaphore(maxConcurrent > 0 ? maxConcurrent : 1);
+                }
+            }
+        }
+        return semaphore;
+    }
+
+    /**
      * 初始化 Playwright 和 Chromium 浏览器实例
      */
     @PostConstruct
     public void init() {
-        LOGGER.info("[HtmlToPdfServiceImpl#init] starting Playwright + Chromium");
+        this.semaphore = new Semaphore(maxConcurrent);
+        LOGGER.info("[HtmlToPdfServiceImpl#init] starting Playwright + Chromium, maxConcurrent={}", maxConcurrent);
         this.playwright = Playwright.create();
 
         BrowserType.LaunchOptions launchOpts = new BrowserType.LaunchOptions()
@@ -186,7 +206,7 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
      * Playwright 截图预览 — 完整渲染含图片/CSS/JS，替代 HTTP 抓取
      */
     private byte[] doScreenshot(String url, byte[] htmlBytes) {
-        if (!semaphore.tryAcquire()) {
+        if (!getSemaphore().tryAcquire()) {
             throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_BUSY);
         }
         BrowserContext browserContext = null;
@@ -224,7 +244,7 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
             if (browserContext != null) {
                 try { browserContext.close(); } catch (Exception ignored) {}
             }
-            semaphore.release();
+            getSemaphore().release();
         }
     }
 
@@ -239,7 +259,7 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
      */
     private byte[] doRender(String url, byte[] htmlBytes, RenderContext context) {
         // 并发控制
-        if (!semaphore.tryAcquire()) {
+        if (!getSemaphore().tryAcquire()) {
             LOGGER.warn("[HtmlToPdfServiceImpl#doRender] busy, rejecting request");
             throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_BUSY);
         }
@@ -315,7 +335,7 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
                     LOGGER.warn("[HtmlToPdfServiceImpl#doRender] error closing context", e);
                 }
             }
-            semaphore.release();
+            getSemaphore().release();
         }
     }
 
@@ -396,10 +416,8 @@ public class HtmlToPdfServiceImpl implements HtmlToPdfService {
         if (url == null || url.isBlank()) {
             throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_URL_EMPTY);
         }
-        String trimmed = url.trim();
-        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-            throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_URL_INVALID);
-        }
+        // 协议 + SSRF 校验（禁用内网/私有 IP）
+        UrlSecurityValidator.validate(url);
     }
 
     /**

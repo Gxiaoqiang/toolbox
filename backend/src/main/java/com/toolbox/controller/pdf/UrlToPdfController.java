@@ -2,6 +2,8 @@ package com.toolbox.controller.pdf;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.HtmlToPdfService;
 import com.toolbox.service.pdf.RenderContext;
 import org.jetbrains.annotations.NotNull;
@@ -47,6 +49,7 @@ public class UrlToPdfController {
      * @return PDF 文件流
      */
     @PostMapping("/url-to-pdf")
+    @RateLimit(permitsPerSecond = 0.5, burst = 2, tier = ResourceTier.CRITICAL)
     public ResponseEntity<byte[]> urlToPdf(@RequestBody Map<String, Object> params) {
         String url = (String) params.getOrDefault("url", "");
         LOGGER.info("[UrlToPdfController#urlToPdf] url={}", url);
@@ -73,6 +76,7 @@ public class UrlToPdfController {
      * @return HTML 内容（text/plain）
      */
     @GetMapping("/preview-html")
+    @RateLimit(permitsPerSecond = 0.5, burst = 2, tier = ResourceTier.CRITICAL)
     public ResponseEntity<byte[]> previewHtml(@RequestParam String url) {
         if (url == null || url.isBlank()) {
             throw new BusinessException(ErrorCodeEnum.HTML_TO_PDF_URL_EMPTY);

@@ -36,8 +36,12 @@ class ImageControllerTest {
 
     // ===== 辅助方法 =====
 
+    /** 创建包含合法 JPEG 魔数（FF D8 FF E0）的测试文件 */
     private MockMultipartFile createImageFile(String name, String ext) {
-        byte[] fakeContent = "fake-image-content".getBytes();
+        byte[] fakeContent = new byte[] {
+                (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,
+                0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01
+        };
         return new MockMultipartFile("files", name + "." + ext,
                 "image/" + ext, fakeContent);
     }
@@ -144,7 +148,10 @@ class ImageControllerTest {
     @DisplayName("单文件超大返回 400")
     void singleFileTooLarge() throws Exception {
         // 创建超过 5MB 的文件
+        // 创建超过 5MB 的文件（带合法 JPEG 魔数）
         byte[] oversized = new byte[6 * 1024 * 1024];
+        oversized[0] = (byte) 0xFF; oversized[1] = (byte) 0xD8;
+        oversized[2] = (byte) 0xFF; oversized[3] = (byte) 0xE0;
         MockMultipartFile file = new MockMultipartFile(
                 "files", "huge.jpg", "image/jpeg", oversized);
 

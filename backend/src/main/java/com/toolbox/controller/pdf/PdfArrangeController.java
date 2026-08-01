@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
 import com.toolbox.model.common.PdfArrangeItem;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.PdfArrangeService;
 import com.toolbox.util.FileTypeValidator;
 import org.slf4j.Logger;
@@ -55,6 +57,7 @@ public class PdfArrangeController {
      * @param plan  编排计划 JSON 字符串
      */
     @PostMapping("/arrange")
+    @RateLimit(permitsPerSecond = 2.0, burst = 5, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> arrange(
             @RequestParam("files") List<MultipartFile> files,
             @RequestParam("plan") String plan) {
@@ -78,6 +81,9 @@ public class PdfArrangeController {
             }
             if (file.getSize() > MAX_FILE_SIZE) {
                 throw new BusinessException(ErrorCodeEnum.DOC_FILE_TOO_LARGE);
+            }
+            if (!FileTypeValidator.isValidPdfMagic(FileTypeValidator.readHeader(file, 4))) {
+                throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
             }
             totalSize += file.getSize();
         }

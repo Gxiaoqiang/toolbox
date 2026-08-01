@@ -2,6 +2,8 @@ package com.toolbox.controller.markdown;
 
 import com.toolbox.model.common.R;
 import com.toolbox.model.dto.ConvertResultDTO;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.markdown.MarkdownService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,7 @@ public class MarkdownController {
      * Markdown 转 DOCX：接受 Markdown 文本，返回 DOCX 文件下载
      */
     @PostMapping("/md-to-docx")
+    @RateLimit(permitsPerSecond = 5.0, burst = 10, tier = ResourceTier.LIGHT)
     public ResponseEntity<Resource> convertMdToDocx(@RequestParam("content") String markdownContent,
                                                      @RequestParam(value = "filename", defaultValue = "output") String filename) {
         LOGGER.info("Markdown 转 DOCX 请求, 内容长度: {}", markdownContent.length());

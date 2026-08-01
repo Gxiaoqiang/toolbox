@@ -27,6 +27,11 @@ class PdfControllerTest {
     @MockBean
     private PdfService pdfService;
 
+    private byte[] createMockPdfContent() {
+        // PDF 文件必须以 %PDF 开头，否则魔数校验会拒绝
+        return "%PDF-1.4\nfake pdf content\n%%EOF\n".getBytes();
+    }
+
     private byte[] createMockZip() throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (ZipOutputStream zos = new ZipOutputStream(bos)) {
@@ -44,7 +49,7 @@ class PdfControllerTest {
                 .thenReturn(createMockZip());
 
         MockMultipartFile file = new MockMultipartFile(
-                "file", "test.pdf", "application/pdf", "fake-pdf-content".getBytes());
+                "file", "test.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/split")
                         .file(file)
@@ -62,7 +67,7 @@ class PdfControllerTest {
                 .thenReturn(createMockZip());
 
         MockMultipartFile file = new MockMultipartFile(
-                "file", "test.pdf", "application/pdf", "fake-pdf-content".getBytes());
+                "file", "test.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/split")
                         .file(file)
@@ -79,7 +84,7 @@ class PdfControllerTest {
                 .thenReturn(createMockZip());
 
         MockMultipartFile file = new MockMultipartFile(
-                "file", "test.pdf", "application/pdf", "fake-pdf-content".getBytes());
+                "file", "test.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/split")
                         .file(file)
@@ -101,7 +106,7 @@ class PdfControllerTest {
     @DisplayName("缺少 mode 参数 — 返回 400")
     void missingMode_returns400() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "test.pdf", "application/pdf", "fake-pdf-content".getBytes());
+                "file", "test.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/split")
                         .file(file))
@@ -129,9 +134,9 @@ class PdfControllerTest {
                 .thenReturn(new byte[]{1, 2, 3});
 
         MockMultipartFile file1 = new MockMultipartFile(
-                "files", "a.pdf", "application/pdf", "pdf-content-1".getBytes());
+                "files", "a.pdf", "application/pdf", createMockPdfContent());
         MockMultipartFile file2 = new MockMultipartFile(
-                "files", "b.pdf", "application/pdf", "pdf-content-2".getBytes());
+                "files", "b.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/merge")
                         .file(file1)
@@ -149,9 +154,9 @@ class PdfControllerTest {
                 .thenReturn(new byte[]{1, 2, 3});
 
         MockMultipartFile file1 = new MockMultipartFile(
-                "files", "a.pdf", "application/pdf", "pdf-1".getBytes());
+                "files", "a.pdf", "application/pdf", createMockPdfContent());
         MockMultipartFile file2 = new MockMultipartFile(
-                "files", "b.pdf", "application/pdf", "pdf-2".getBytes());
+                "files", "b.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/merge")
                         .file(file1)
@@ -164,7 +169,7 @@ class PdfControllerTest {
     @DisplayName("合并 — 仅 1 个文件返回错误")
     void merge_singleFile_returnsError() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
-                "files", "a.pdf", "application/pdf", "pdf-content".getBytes());
+                "files", "a.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/merge")
                         .file(file))
@@ -177,7 +182,7 @@ class PdfControllerTest {
         MockMultipartFile file1 = new MockMultipartFile(
                 "files", "a.txt", "text/plain", "not-pdf".getBytes());
         MockMultipartFile file2 = new MockMultipartFile(
-                "files", "b.pdf", "application/pdf", "pdf".getBytes());
+                "files", "b.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/merge")
                         .file(file1)
@@ -191,7 +196,7 @@ class PdfControllerTest {
         MockMultipartFile file1 = new MockMultipartFile(
                 "files", "a.pdf", "application/pdf", new byte[0]);
         MockMultipartFile file2 = new MockMultipartFile(
-                "files", "b.pdf", "application/pdf", "pdf".getBytes());
+                "files", "b.pdf", "application/pdf", createMockPdfContent());
 
         mockMvc.perform(multipart("/api/pdf/merge")
                         .file(file1)

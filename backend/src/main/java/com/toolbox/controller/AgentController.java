@@ -1,6 +1,8 @@
 package com.toolbox.controller;
 
 import com.toolbox.model.agent.ChatEvent;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.agent.AgentService;
 import com.toolbox.service.agent.ConnectionRegistry;
 import com.toolbox.service.agent.ConversationManager;
@@ -77,6 +79,7 @@ public class AgentController {
      * @param conversationId 对话 ID（可选，新对话不传）
      */
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(permitsPerSecond = 1.0, burst = 3, tier = ResourceTier.MEDIUM)
     public SseEmitter chat(
             @RequestParam("message") String message,
             @RequestParam(value = "files", required = false) MultipartFile[] files,

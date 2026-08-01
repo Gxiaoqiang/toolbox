@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
 import com.toolbox.model.pdf.RedactRequest;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.PdfRedactService;
 import com.toolbox.util.FileTypeValidator;
 import org.slf4j.Logger;
@@ -53,6 +55,7 @@ public class PdfRedactController {
      *                  page 为 0-based，x/y/w/h 为 PDF 坐标（points）
      */
     @PostMapping("/redact")
+    @RateLimit(permitsPerSecond = 3.0, burst = 8, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> redact(
             @RequestParam("file") MultipartFile file,
             @RequestParam("mode") String mode,
@@ -112,6 +115,7 @@ public class PdfRedactController {
      * @param dpi      渲染 DPI，默认 150
      */
     @PostMapping("/render-page")
+    @RateLimit(permitsPerSecond = 3.0, burst = 8, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> renderPage(
             @RequestParam("file") MultipartFile file,
             @RequestParam("pageIndex") int pageIndex,
@@ -154,6 +158,10 @@ public class PdfRedactController {
         }
         if (file.getSize() > 50 * 1024 * 1024) {
             throw new BusinessException(ErrorCodeEnum.DOC_FILE_TOO_LARGE);
+        }
+        // 魔数校验
+        if (!FileTypeValidator.isValidPdfMagic(FileTypeValidator.readHeader(file, 4))) {
+            throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
         }
     }
 }

@@ -2,7 +2,10 @@ package com.toolbox.controller.image;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.image.ImageToPdfService;
+import com.toolbox.util.FileTypeValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
@@ -57,6 +60,7 @@ public class ImageController {
      * @param merge       是否合并为一个 PDF（false 时每张独立 PDF 打包 ZIP）
      */
     @PostMapping("/to-pdf")
+    @RateLimit(permitsPerSecond = 5.0, burst = 10, tier = ResourceTier.LIGHT)
     public ResponseEntity<?> convertToPdf(
             @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "orientation", defaultValue = "portrait") String orientation,
@@ -84,6 +88,10 @@ public class ImageController {
             }
             if (file.getSize() > MAX_SINGLE_SIZE) {
                 throw new BusinessException(ErrorCodeEnum.IMAGE_FILE_TOO_LARGE);
+            }
+            // 魔数校验
+            if (!FileTypeValidator.isValidImageMagic(FileTypeValidator.readHeader(file, 12))) {
+                throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
             }
             totalSize += file.getSize();
         }

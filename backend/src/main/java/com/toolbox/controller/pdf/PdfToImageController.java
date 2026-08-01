@@ -2,6 +2,8 @@ package com.toolbox.controller.pdf;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.ImageConvertConstant;
 import com.toolbox.service.pdf.PdfToImageResult;
 import com.toolbox.service.pdf.PdfToImageService;
@@ -49,6 +51,7 @@ public class PdfToImageController {
      * @param pageRange 页码范围（空=全部），如 "1-5" 或 "1,3,5"
      */
     @PostMapping("/to-image")
+    @RateLimit(permitsPerSecond = 1.0, burst = 3, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> convertToImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "dpi", defaultValue = "" + ImageConvertConstant.DEFAULT_DPI) int dpi,
@@ -95,6 +98,10 @@ public class PdfToImageController {
         }
         if (file.getSize() > ImageConvertConstant.MAX_FILE_SIZE) {
             throw new BusinessException(ErrorCodeEnum.DOC_FILE_TOO_LARGE);
+        }
+        // 魔数校验
+        if (!FileTypeValidator.isValidPdfMagic(FileTypeValidator.readHeader(file, 4))) {
+            throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
         }
     }
 

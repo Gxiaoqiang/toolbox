@@ -192,8 +192,23 @@ export const meta: ToolMeta = {
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 
+// ======================== pdfjs-dist v6 兼容补丁 ========================
+// v6 的 calculateMD5/stringToBytes 返回普通 Uint8Array，
+// 但内部代码期望有 .toHex() 方法（v3/v4 的自定义字节数组有该方法）
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const proto = Uint8Array.prototype as any
+if (!proto.toHex) {
+  proto.toHex = function (this: Uint8Array): string {
+    return Array.from(this).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+}
+
 // ======================== Worker 配置 ========================
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
+
+// 配置 CMap 路径，让 pdfjs-dist 能处理 CJK 等 CID 字体
+// cmaps 目录由 vite.config.ts 中的 copy-pdfjs-cmaps 插件在 build 时复制到 assets/cmaps/
+const CMAP_URL = new URL('/assets/cmaps/', window.location.origin).toString()
 
 // ======================== 类型 ========================
 
@@ -263,6 +278,7 @@ let resizeHandle = ''
 const resultBlob = ref<Blob | null>(null)
 const showConfirm = ref(false)
 let fileArrayBuffer: ArrayBuffer | null = null  // 保留文件数据用于后端降级渲染
+let originalFilename = ''  // 原始文件名，用于后端渲染 FormData
 const pageImages: (HTMLImageElement | null)[] = []  // 后端渲染的图片（替代 canvas）
 
 // ======================== Canvas 引用管理 ========================
@@ -358,6 +374,7 @@ async function loadFile(file: File) {
     return
   }
   uploadedFile.value = file
+  originalFilename = file.name
   errorMsg.value = ''
   pageRects.value = new Map()
   undoStack.value = []
@@ -368,7 +385,11 @@ async function loadFile(file: File) {
 
   try {
     fileArrayBuffer = await file.arrayBuffer()
-    pdfDoc = await pdfjsLib.getDocument({ data: fileArrayBuffer }).promise
+    pdfDoc = await pdfjsLib.getDocument({
+      data: fileArrayBuffer,
+      cMapUrl: CMAP_URL,
+      cMapPacked: true,
+    }).promise
     totalPages.value = pdfDoc.numPages
     stage.value = 'ready'
     await nextTick()
@@ -430,18 +451,31 @@ async function renderAllPages() {
   }
 
   if (errors.length > 0) {
-    errorMsg.value = `部分页面渲染失败: ${errors.join('; ')}`
-    stage.value = 'error'
-  } else {
-    stage.value = 'ready'
+    errorMsg.value = `部分页面前端渲染失败: ${errors.join('; ')}`
+    // 不设置 stage = 'error'，保留 canvases 在 DOM 中
+    // 让后续 checkAndFallbackRender() 有机会走后端降级修复
+    console.warn(`[pdf-redact] renderAllPages errors: ${errors.join('; ')}`)
   }
 
+  // 注意：不在此处设置 stage，由调用方管理 stage 状态
+  // loadFile()/resetToReady() → 调用前已设 stage='ready'
+  // doSubmit() → stage 为 'done'，不应被覆盖
   redrawAllOverlays()
 }
 
 /**
  * 检测 pdfjs-dist 渲染的白页，自动调用后端 PDFBox 重新渲染
- * 采样 5×5 像素网格，若 >90% 为白色则判定为空白页，走后端降级
+ *
+ * 关键设计：此函数不改变 stage，因为 stage='processing' 会导致 Vue 模板销毁
+ * v-else 块中的所有 canvas 元素，之后重新创建时变为空白 —— 后端渲染结果会全部丢失。
+ *
+ * 采样 10×10 像素网格，利用像素方差而非单纯白色比例来判断白页：
+ * - 真正的空白页：所有采样点颜色几乎一致 → 方差趋近于 0
+ * - 有内容的页面：文本/图像造成采样点间颜色差异 → 方差较大
+ * 两层检测策略：
+ * 1. 纯白页：方差 < 0.5 AND 平均亮度 > 250 → 空白页，后端渲染
+ * 2. 低质量渲染：没有任何采样点为深色 AND 平均值偏高
+ *    → pdfjs-dist 渲染了模糊灰度块（如 CJK CID 字体缺失），后端渲染
  */
 async function checkAndFallbackRender() {
   if (!fileArrayBuffer || totalPages.value === 0) return
@@ -453,59 +487,100 @@ async function checkAndFallbackRender() {
     const ctx = canvas.getContext('2d')
     if (!ctx) continue
 
-    // 5×5 网格采样检测白页
-    const sampleSize = 5
-    let whiteCount = 0
+    // 10×10 网格采样
+    const sampleSize = 10
     const totalSamples = sampleSize * sampleSize
     const stepX = canvas.width / (sampleSize + 1)
     const stepY = canvas.height / (sampleSize + 1)
 
+    // 收集所有采样点的亮度值 + 检测是否有深色像素
+    const brightnesses: number[] = []
+    let minBrightness = 255
+    let allChannelsMin = 255
+
     for (let sx = 1; sx <= sampleSize; sx++) {
       for (let sy = 1; sy <= sampleSize; sy++) {
         const pixel = ctx.getImageData(Math.round(sx * stepX), Math.round(sy * stepY), 1, 1).data
-        // R、G、B 都 > 240 视为白色
-        if (pixel[0] > 240 && pixel[1] > 240 && pixel[2] > 240) whiteCount++
+        const b = pixel[0] * 0.299 + pixel[1] * 0.587 + pixel[2] * 0.114
+        brightnesses.push(b)
+        if (b < minBrightness) minBrightness = b
+        const chMin = Math.min(pixel[0], pixel[1], pixel[2])
+        if (chMin < allChannelsMin) allChannelsMin = chMin
       }
     }
 
-    // >90% 白色采样点 → 判定为空白页
-    if (whiteCount / totalSamples > 0.9) blankPages.push(i)
+    // 计算亮度的平均值和方差
+    const mean = brightnesses.reduce((a, b) => a + b, 0) / totalSamples
+    const variance = brightnesses.reduce((sum, b) => sum + (b - mean) ** 2, 0) / totalSamples
+
+    // 检测 1: 纯白页 — 方差趋近 0 且均值接近纯白
+    const isBlankPage = variance < 0.5 && mean > 250
+    // 检测 2: 低质量渲染 — 没有任何深色采样点（最暗通道 > 80）
+    //   说明 pdfjs-dist 渲染了模糊的灰度像素而非真正的文字/图像
+    //   常见于 CJK CID 字体无法渲染时产生灰块的情况
+    const isLowQuality = !isBlankPage && allChannelsMin > 80 && mean > 180
+
+    console.log(`[pdf-redact] page ${i}: variance=${variance.toFixed(2)}, mean=${mean.toFixed(1)}, minBrightness=${minBrightness.toFixed(1)}, minChannel=${allChannelsMin}, blank=${isBlankPage}, lowQuality=${isLowQuality}`)
+    if (isBlankPage || isLowQuality) blankPages.push(i)
   }
 
-  if (blankPages.length === 0) return
+  if (blankPages.length === 0) {
+    console.log(`[pdf-redact] checkAndFallbackRender: no blank pages detected (totalPages=${totalPages.value})`)
+    return
+  }
 
-  processingLabel.value = `后端渲染 ${blankPages.length} 页...`
-  stage.value = 'processing'
+  console.log(`[pdf-redact] checkAndFallbackRender: detected ${blankPages.length}/${totalPages.value} blank pages: [${blankPages.join(',')}]`)
+
+  // TypeScript 窄化：此时 fileArrayBuffer 必定非 null（函数入口已检查）
+  const pdfData = fileArrayBuffer!
+
+  // 注意：不改变 stage！保持 'ready' 状态，canvases 继续留在 DOM 中
+  // 后端渲染结果直接绘制到现有的活跃 canvas 上，避免 Vue 销毁/重建 canvas
+  processingLabel.value = `后台渲染 ${blankPages.length}/${totalPages.value} 页中...`
 
   try {
-    const formData = new FormData()
-    formData.append('file', new Blob([fileArrayBuffer], { type: 'application/pdf' }))
-
+    // 逐个渲染空白页（顺序执行，避免浏览器资源争抢）
     for (const pageIndex of blankPages) {
       const fd = new FormData()
-      fd.append('file', new Blob([fileArrayBuffer], { type: 'application/pdf' }))
+      fd.append('file', new Blob([pdfData], { type: 'application/pdf' }), originalFilename)
       fd.append('pageIndex', String(pageIndex))
       fd.append('dpi', '150')
 
-      const resp = await fetch(`${window.location.origin}/api/pdf/render-page`, {
-        method: 'POST',
-        body: fd,
-      })
+      try {
+        const resp = await fetch(`${window.location.origin}/api/pdf/render-page`, {
+          method: 'POST',
+          body: fd,
+        })
 
-      if (!resp.ok) continue
+        if (!resp.ok) {
+          console.warn(`[pdf-redact] backend render failed for page ${pageIndex}: HTTP ${resp.status}`)
+          continue
+        }
 
-      const blob = await resp.blob()
-      const url = URL.createObjectURL(blob)
-      const img = new Image()
-      img.onload = () => {
-        // 用后端渲染的图片替换 canvas 上的空白内容
+        const blob = await resp.blob()
+        const url = URL.createObjectURL(blob)
+        const img = new Image()
+
+        // 等待图片加载 + 解码完成
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve()
+          img.onerror = () => reject(new Error('image load failed'))
+          img.src = url
+        })
+        await img.decode().catch(() => {})
+
+        // 直接更新活跃 canvas（因为 stage 未改变，canvas 仍在 DOM 中）
         const canvas = getPdfCanvas(pageIndex)
         if (canvas) {
+          // 保存原始 PDF 物理宽度用于重新计算 scale
+          const pdfPageWidth = canvas.width / (pageScales[pageIndex] || 1)
           canvas.width = img.width
           canvas.height = img.height
           const ctx = canvas.getContext('2d')!
           ctx.drawImage(img, 0, 0)
-          pageScales[pageIndex] = img.width / (img.width / pageScales[pageIndex] * canvas.width / img.width)
+          // 正确计算新的缩放比
+          pageScales[pageIndex] = img.width / pdfPageWidth
+
           // 同步更新 overlay canvas 尺寸
           const overlay = getOverlay(pageIndex)
           if (overlay) {
@@ -514,19 +589,20 @@ async function checkAndFallbackRender() {
           }
         }
         pageImages[pageIndex] = img
-        // 重绘该页的方块覆盖层
         drawOverlay(pageIndex)
+        URL.revokeObjectURL(url)
+        console.log(`[pdf-redact] page ${pageIndex}: replaced canvas with backend render (${img.width}x${img.height})`)
+      } catch (e) {
+        console.warn(`[pdf-redact] page ${pageIndex}: backend fallback FAILED:`, e)
       }
-      img.src = url
     }
-
-    // 等待图片加载完成再恢复状态
-    await new Promise(r => setTimeout(r, 1000))
   } catch (e) {
     console.warn('[pdf-redact] backend fallback render failed:', e)
   }
 
-  stage.value = 'ready'
+  // 清除进度提示（保持 stage 不变）
+  console.log(`[pdf-redact] checkAndFallbackRender: done, replaced ${blankPages.length} page(s) with backend render`)
+  processingLabel.value = ''
   errorMsg.value = ''
 }
 

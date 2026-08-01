@@ -2,6 +2,8 @@ package com.toolbox.controller.pdf;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.HtmlToPdfService;
 import com.toolbox.service.pdf.RenderContext;
 import org.slf4j.Logger;
@@ -60,6 +62,7 @@ public class FileToPdfController {
      * @return PDF 文件流
      */
     @PostMapping("/file-to-pdf")
+    @RateLimit(permitsPerSecond = 0.5, burst = 2, tier = ResourceTier.CRITICAL)
     public ResponseEntity<byte[]> fileToPdf(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "paperSize", defaultValue = "A4") String paperSize,
@@ -126,6 +129,7 @@ public class FileToPdfController {
      * @param mainHtmlName 主 HTML 文件名
      */
     @PostMapping("/folder-to-pdf")
+    @RateLimit(permitsPerSecond = 0.5, burst = 2, tier = ResourceTier.CRITICAL)
     public ResponseEntity<byte[]> folderToPdf(
             @RequestParam("files") MultipartFile[] files,
             @RequestParam("mainHtml") String mainHtmlName,
@@ -170,6 +174,7 @@ public class FileToPdfController {
 
     /** HTML 文件夹预览截图 */
     @PostMapping("/preview-folder")
+    @RateLimit(permitsPerSecond = 0.5, burst = 2, tier = ResourceTier.CRITICAL)
     public ResponseEntity<byte[]> previewFolder(
             @RequestParam("files") MultipartFile[] files,
             @RequestParam("mainHtml") String mainHtmlName) {

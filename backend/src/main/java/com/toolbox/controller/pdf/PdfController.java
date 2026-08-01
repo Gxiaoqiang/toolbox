@@ -3,6 +3,8 @@ package com.toolbox.controller.pdf;
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
 import com.toolbox.model.common.R;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.PdfService;
 import com.toolbox.util.FileTypeValidator;
 import org.slf4j.Logger;
@@ -41,6 +43,7 @@ public class PdfController {
      * PDF 切分：支持逐页拆分、按页码范围、每 N 页拆分，返回 ZIP 下载
      */
     @PostMapping("/split")
+    @RateLimit(permitsPerSecond = 2.0, burst = 5, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> splitPdf(
             @RequestParam("file") MultipartFile file,
             @RequestParam("mode") String mode,
@@ -57,6 +60,11 @@ public class PdfController {
         String filename = file.getOriginalFilename();
         if (filename == null || !FileTypeValidator.hasExtension(filename, "pdf")) {
             throw new BusinessException(ErrorCodeEnum.PDF_FORMAT_INVALID);
+        }
+
+        // 魔数校验
+        if (!FileTypeValidator.isValidPdfMagic(FileTypeValidator.readHeader(file, 4))) {
+            throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
         }
 
         LOGGER.info("PDF 切分请求: file={}, size={}, mode={}",
@@ -93,6 +101,7 @@ public class PdfController {
      * PDF 合并：将多个 PDF 文件按顺序合并为一个 PDF
      */
     @PostMapping("/merge")
+    @RateLimit(permitsPerSecond = 2.0, burst = 5, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> mergePdf(
             @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "preserveMeta", defaultValue = "false") boolean preserveMeta) {
@@ -118,6 +127,9 @@ public class PdfController {
             }
             if (file.getSize() > 5 * 1024 * 1024) {
                 throw new BusinessException(ErrorCodeEnum.DOC_FILE_TOO_LARGE);
+            }
+            if (!FileTypeValidator.isValidPdfMagic(FileTypeValidator.readHeader(file, 4))) {
+                throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
             }
         }
 

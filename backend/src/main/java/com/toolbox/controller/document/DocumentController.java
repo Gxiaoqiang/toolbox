@@ -2,6 +2,8 @@ package com.toolbox.controller.document;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.document.DocumentService;
 import com.toolbox.util.FileTypeValidator;
 import org.slf4j.Logger;
@@ -43,6 +45,7 @@ public class DocumentController {
     }
 
     @PostMapping("/convert-to-pdf")
+    @RateLimit(permitsPerSecond = 1.0, burst = 3, tier = ResourceTier.HEAVY)
     public ResponseEntity<?> convertToPdf(@RequestParam("files") List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new BusinessException(ErrorCodeEnum.DOC_FILE_EMPTY);

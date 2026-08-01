@@ -23,7 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "toolbox.agent.llm-model=deepseek-v4-pro",
         "toolbox.agent.llm-api-key=test-key-for-unit-tests",
         "toolbox.store.conversation-store=local",
-        "toolbox.store.connection-registry=local"
+        "toolbox.store.connection-registry=local",
+        "toolbox.security.rate-limit.enabled=false"
     })
 @AutoConfigureMockMvc
 class AgentControllerTest {

@@ -15,6 +15,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -69,6 +70,9 @@ class UrlToPdfControllerTest {
         @Test
         @DisplayName("URL 为空应返回 400")
         void shouldRejectEmptyUrl() throws Exception {
+            when(htmlToPdfService.convertUrl(eq(""), any()))
+                    .thenThrow(new BusinessException(ErrorCodeEnum.HTML_TO_PDF_URL_EMPTY));
+
             mockMvc.perform(post("/api/pdf/url-to-pdf")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
@@ -82,6 +86,9 @@ class UrlToPdfControllerTest {
         @Test
         @DisplayName("URL 缺失应返回 400")
         void shouldRejectMissingUrl() throws Exception {
+            when(htmlToPdfService.convertUrl(anyString(), any()))
+                    .thenThrow(new BusinessException(ErrorCodeEnum.HTML_TO_PDF_URL_EMPTY));
+
             mockMvc.perform(post("/api/pdf/url-to-pdf")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
@@ -106,7 +113,7 @@ class UrlToPdfControllerTest {
                                         "url": "https://unreachable.example.com"
                                     }
                                     """))
-                    .andExpect(status().isOk())
+                    .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(400));
         }
 
@@ -123,7 +130,7 @@ class UrlToPdfControllerTest {
                                         "url": "https://slow.example.com"
                                     }
                                     """))
-                    .andExpect(status().isOk())
+                    .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.code").value(500));
         }
     }

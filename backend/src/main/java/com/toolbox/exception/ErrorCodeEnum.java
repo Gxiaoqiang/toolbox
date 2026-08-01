@@ -71,6 +71,14 @@ public enum ErrorCodeEnum {
     /** PDF 涂黑处理失败 */
     PDF_REDACT_PROCESS_ERROR(500, "PDF 涂黑处理失败，请稍后重试"),
 
+    // ===== PDF 去水印 =====
+    /** 去水印区域为空 */
+    PDF_DEWATERMARK_REGIONS_EMPTY(400, "请至少框选一个水印区域"),
+    /** 去水印应用范围无效 */
+    PDF_DEWATERMARK_APPLY_INVALID(400, "应用范围无效，仅支持 all / page"),
+    /** PDF 去水印处理失败 */
+    PDF_DEWATERMARK_PROCESS_ERROR(500, "PDF 去水印处理失败，请稍后重试"),
+
     // ===== 图片转 PDF =====
     /** 图片文件数量无效 */
     IMAGE_FILE_COUNT_INVALID(400, "图片数量无效，需要 1-50 张"),
@@ -146,7 +154,15 @@ public enum ErrorCodeEnum {
     /** Agent 会话未找到 */
     AGENT_SESSION_NOT_FOUND(404, "对话不存在或已过期"),
     /** Agent 并发连接数超限 */
-    AGENT_TOO_MANY_CONNECTIONS(503, "当前使用人数较多，请稍后重试");
+    AGENT_TOO_MANY_CONNECTIONS(503, "当前使用人数较多，请稍后重试"),
+
+    // ===== 限流与安全防控 =====
+    /** 请求频率超限 */
+    RATE_LIMIT_EXCEEDED(429, "请求过于频繁，请稍后重试"),
+    /** SSRF 防护：URL 指向内网地址 */
+    URL_SSRF_BLOCKED(400, "不允许访问内网地址或保留 IP"),
+    /** 文件魔数与扩展名不匹配 */
+    FILE_MAGIC_MISMATCH(400, "文件内容与扩展名不匹配，请上传正确格式的文件");
 
     /** 错误码 */
     private final Integer code;

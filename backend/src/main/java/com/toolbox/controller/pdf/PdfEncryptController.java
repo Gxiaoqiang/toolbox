@@ -2,6 +2,8 @@ package com.toolbox.controller.pdf;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.exception.ErrorCodeEnum;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.pdf.PdfEncryptService;
 import com.toolbox.util.FileTypeValidator;
 import org.slf4j.Logger;
@@ -53,6 +55,7 @@ public class PdfEncryptController {
      * @param canAssemble   允许页面组装
      */
     @PostMapping("/encrypt")
+    @RateLimit(permitsPerSecond = 3.0, burst = 8, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> encrypt(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "userPassword", defaultValue = "") String userPassword,
@@ -105,6 +108,10 @@ public class PdfEncryptController {
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new BusinessException(ErrorCodeEnum.DOC_FILE_TOO_LARGE);
+        }
+        // 魔数校验
+        if (!FileTypeValidator.isValidPdfMagic(FileTypeValidator.readHeader(file, 4))) {
+            throw new BusinessException(ErrorCodeEnum.FILE_MAGIC_MISMATCH);
         }
     }
 

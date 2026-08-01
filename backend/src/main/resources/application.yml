@@ -28,6 +28,36 @@ toolbox:
     binary-path: soffice
     # 最大并发转换数（每个 soffice 进程约占用 200-500MB 内存）
     max-concurrent: 10
+
+  # ============================================
+  # Playwright 渲染配置
+  # ============================================
+  playwright:
+    # 最大并发 Chromium 实例数（每个约 500MB 内存）
+    max-concurrent: ${TOOLBOX_PLAYWRIGHT_MAX_CONCURRENT:2}
+
+  # ============================================
+  # 安全防控配置
+  # ============================================
+  security:
+    rate-limit:
+      # 限流开关
+      enabled: true
+      # 限流存储后端: local（单机内存）| redis（分布式）
+      store: ${TOOLBOX_RATE_LIMIT_STORE:redis}
+      # 全局默认每秒令牌数（未标注 @RateLimit 的方法使用此值）
+      default-permits-per-second: 5.0
+      # 全局默认令牌桶容量（允许的最大突发请求数）
+      default-burst: 10
+    # URL 安全防护
+    url-protection:
+      enabled: true
+      # 阻止访问内网/私有 IP
+      block-private-ips: true
+    # 文件安全校验
+    file-validation:
+      # 文件魔数校验（检查文件实际内容而非仅看扩展名）
+      check-magic-bytes: true
   # ============================================
   # Agent — 文档处理 AI Agent 配置
   # ============================================
