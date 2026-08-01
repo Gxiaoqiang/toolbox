@@ -79,6 +79,18 @@ public enum ErrorCodeEnum {
     /** PDF 去水印处理失败 */
     PDF_DEWATERMARK_PROCESS_ERROR(500, "PDF 去水印处理失败，请稍后重试"),
 
+    // ===== PDF 添加水印 =====
+    /** 水印来源无效 */
+    PDF_WATERMARK_SOURCE_INVALID(400, "水印来源无效，仅支持 text / image"),
+    /** 水印文本为空 */
+    PDF_WATERMARK_TEXT_EMPTY(400, "请输入水印文本"),
+    /** 水印图片无效 */
+    PDF_WATERMARK_IMAGE_INVALID(400, "水印图片无效或格式不支持"),
+    /** 水印参数无效 */
+    PDF_WATERMARK_CONFIG_INVALID(400, "水印参数无效"),
+    /** PDF 添加水印处理失败 */
+    PDF_WATERMARK_PROCESS_ERROR(500, "PDF 添加水印失败，请稍后重试"),
+
     // ===== 图片转 PDF =====
     /** 图片文件数量无效 */
     IMAGE_FILE_COUNT_INVALID(400, "图片数量无效，需要 1-50 张"),
