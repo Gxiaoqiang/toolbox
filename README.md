@@ -7,7 +7,7 @@
 
 启动后访问 `http://localhost:8899`
 
-## 功能清单（21 个工具）
+## 功能清单（24 个工具）
 
 ### 📄 文档转换
 
@@ -27,6 +27,9 @@
 | **PDF 转图片** | PDF 逐页转 PNG/JPEG/WEBP，可调 DPI（72-600），ZIP 下载 | ✓ |
 | **PDF 编排** | 自由编排 PDF 页面——拖拽排序、删除、旋转、插入空白页、合并多文件 | ✓ |
 | **PDF 加密** | 添加密码保护，支持用户密码和所有者密码，控制打印/复制/修改权限 | ✓ |
+| **PDF 涂黑遮盖** | 拖拽绘制方块遮盖敏感内容，支持标准/深度两种模式 | ✓ |
+| **PDF 去水印** | 框选水印区域，删除框内文字/图片水印，保留正文（矢量无损），支持应用到所有页 | ✓ |
+| **PDF 添加水印** | 添加文字/图片水印，自定义字体/字号/颜色/旋转/透明度/位置/页面范围，支持实时预览与撤销重做 | ✓ |
 
 ### 🖼️ 图片处理
 
@@ -306,6 +309,9 @@ const meta: ToolMeta = {
 | POST | `/api/pdf/file-to-pdf` | HTML 文件 → PDF |
 | GET  | `/api/pdf/preview-html` | 网页 URL 预览截图（Playwright） |
 | POST | `/api/pdf/encrypt` | PDF 加密（密码 + 权限控制） |
+| POST | `/api/pdf/redact` | PDF 涂黑遮盖（标准/深度） |
+| POST | `/api/pdf/dewatermark` | PDF 去水印（框选删除水印，返回区域级结果） |
+| POST | `/api/pdf/watermark` | PDF 添加水印（文字/图片，自定义样式/位置/页面范围） |
 | POST | `/api/agent/chat` | AI 文档助手对话（SSE 流式响应） |
 
 ### 统一响应格式
