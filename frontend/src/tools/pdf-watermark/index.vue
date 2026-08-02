@@ -33,6 +33,16 @@ export const meta: ToolMeta = {
           class="text-xs underline hover:text-red-500 transition-colors flex-shrink-0" style="color: var(--text-muted)">移除</button>
         <div class="flex-1"></div>
         <span class="text-xs flex-shrink-0" style="color: var(--text-muted)">共 {{ totalPages }} 页</span>
+        <button @click="undo" :disabled="!canUndo"
+          title="撤销上一步" class="px-2 py-1 text-xs rounded border transition-colors flex-shrink-0"
+          :style="canUndo
+            ? { color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'var(--bg-card)' }
+            : { color: 'var(--text-muted)', borderColor: 'var(--border-color)', background: 'var(--bg-card-hover)' }">↩ 撤销</button>
+        <button @click="redo" :disabled="!canRedo"
+          title="下一步" class="px-2 py-1 text-xs rounded border transition-colors flex-shrink-0"
+          :style="canRedo
+            ? { color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'var(--bg-card)' }
+            : { color: 'var(--text-muted)', borderColor: 'var(--border-color)', background: 'var(--bg-card-hover)' }">↪ 下一步</button>
         <label class="flex items-center gap-1.5 text-xs cursor-pointer flex-shrink-0" style="color: var(--text-primary)">
           <input type="checkbox" v-model="previewMode" class="w-3.5 h-3.5 rounded accent-indigo-500" />
           预览
@@ -310,7 +320,65 @@ const canSubmit = computed(() => {
   return !!imageFile.value
 })
 
-watch(watermark, () => redrawAllOverlays(), { deep: true })
+// ======================== 撤销/重做（水印配置历史） ========================
+const undoStack = ref<WatermarkConfig[]>([])
+const redoStack = ref<WatermarkConfig[]>([])
+const canUndo = computed(() => undoStack.value.length > 0)
+const canRedo = computed(() => redoStack.value.length > 0)
+
+const isRestoring = ref(false) // 撤销/重做程序赋值时跳过记录
+let histTimer: ReturnType<typeof setTimeout> | null = null
+let lastSnapshot: WatermarkConfig = cloneWatermark(watermark.value)
+const HISTORY_LIMIT = 50
+
+function cloneWatermark(cfg: WatermarkConfig): WatermarkConfig {
+  return { ...cfg }
+}
+
+/** 防抖记录一步历史：用户连续拖动滑块后，把本次修改前的快照入栈 */
+function recordHistory() {
+  if (isRestoring.value) return
+  if (histTimer) clearTimeout(histTimer)
+  histTimer = setTimeout(() => {
+    undoStack.value.push(lastSnapshot)
+    if (undoStack.value.length > HISTORY_LIMIT) undoStack.value.shift()
+    redoStack.value = []
+    lastSnapshot = cloneWatermark(watermark.value)
+  }, 300)
+}
+
+function undo() {
+  if (!canUndo.value) return
+  if (histTimer) clearTimeout(histTimer)
+  redoStack.value.push(cloneWatermark(watermark.value))
+  lastSnapshot = undoStack.value.pop()!
+  // 置标志并交由 deep watch 消费，避免程序化还原被记成新历史（watch 是异步的，不能立即复位）
+  isRestoring.value = true
+  Object.assign(watermark.value, cloneWatermark(lastSnapshot))
+  nextTick().then(() => { isRestoring.value = false }) // 兜底：确保标志最终复位
+}
+
+function redo() {
+  if (!canRedo.value) return
+  if (histTimer) clearTimeout(histTimer)
+  undoStack.value.push(lastSnapshot)
+  const next = redoStack.value.pop()!
+  lastSnapshot = cloneWatermark(watermark.value)
+  isRestoring.value = true
+  Object.assign(watermark.value, cloneWatermark(next))
+  nextTick().then(() => { isRestoring.value = false })
+}
+
+watch(watermark, () => {
+  if (isRestoring.value) {
+    // 撤销/重做触发的变更：跳过记录历史，消费标志
+    isRestoring.value = false
+    redrawAllOverlays()
+    return
+  }
+  redrawAllOverlays()
+  recordHistory()
+}, { deep: true })
 watch([previewMode, imagePreviewUrl], () => redrawAllOverlays())
 
 function setPdfCanvas(index: number, el: HTMLCanvasElement) { pdfCanvases[index] = el }
