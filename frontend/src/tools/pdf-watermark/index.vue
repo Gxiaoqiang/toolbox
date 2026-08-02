@@ -570,6 +570,10 @@ async function doSubmit() {
     a.click()
     URL.revokeObjectURL(url)
     stage.value = 'ready'
+    // processing 阶段预览区被卸载，回到 ready 后需重新渲染页面，避免预览变成空白缩略图
+    await nextTick()
+    await new Promise(r => requestAnimationFrame(r))
+    await renderAllPages()
   } catch (e: any) {
     errorMsg.value = e.message || '添加水印失败'
     stage.value = 'error'
