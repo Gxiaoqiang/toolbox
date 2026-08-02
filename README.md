@@ -228,6 +228,76 @@ export REDIS_HOST=localhost
 export REDIS_PORT=6379
 ```
 
+## 配置说明
+
+应用核心配置集中在 `backend/src/main/resources/application.yml`，常用项均支持环境变量覆盖。
+
+### 服务器与上传
+
+```yaml
+server:
+  port: ${SERVER_PORT:8899}          # 服务端口，可用环境变量 SERVER_PORT 覆盖
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB            # 单文件上传上限
+      max-request-size: 50MB         # 单次请求总大小上限
+```
+
+### 存储类型
+
+`toolbox.store.*` 决定文件/会话/连接的存储后端，可用 `TOOLBOX_STORE_XXX` 环境变量覆盖：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `toolbox.store.file-store` | `local` | 文件存储：`local` / `oss` |
+| `toolbox.store.conversation-store` | `redis` | 会话存储：`local` / `redis` |
+| `toolbox.store.connection-registry` | `redis` | 连接注册：`local` / `redis` |
+
+> Redis 仅在需要时启用（`TOOLBOX_STORE_CONVERSATION=redis` 或 `TOOLBOX_STORE_CONNECTION=redis` 时）。
+
+### LibreOffice（文档转 PDF）
+
+```yaml
+toolbox:
+  libreoffice:
+    binary-path: soffice             # soffice 二进制路径
+    max-concurrent: 10               # 最大并发转换数（每进程约占 200-500MB 内存）
+```
+
+### Playwright（HTML/URL 转 PDF）
+
+```yaml
+toolbox:
+  playwright:
+    max-concurrent: ${TOOLBOX_PLAYWRIGHT_MAX_CONCURRENT:2}  # 最大并发 Chromium 实例数（每个约 500MB）
+```
+
+### 安全防控（限流 / URL 防护 / 文件校验）
+
+```yaml
+toolbox:
+  security:
+    rate-limit:
+      enabled: true                      # 限流总开关
+      store: ${TOOLBOX_RATE_LIMIT_STORE:redis}  # 限流存储后端: local / redis
+      default-permits-per-second: 5.0    # 未标注 @RateLimit 的接口默认每秒令牌数
+      default-burst: 10                  # 默认令牌桶容量（允许的最大突发）
+    url-protection:
+      enabled: true                      # URL 安全防护
+      block-private-ips: true            # 阻止访问内网/私有 IP（SSRF 防护）
+    file-validation:
+      check-magic-bytes: true            # 文件魔数校验（校验实际内容而非仅扩展名）
+```
+
+- 单个接口可用 `@RateLimit(permitsPerSecond, burst, tier)` 注解覆盖全局默认限流（如 PDF 处理接口为 `3.0/s`，突发 `8`）。
+- `store: local` 为单机内存限流；`redis` 为分布式限流（需配置 Redis）。
+
+### Agent（AI 文档助手）
+
+详见上文「AI 文档助手配置」章节。核心环境变量：`LLM_API_KEY`、`LLM_MODEL`、`LLM_BASE_URL`。
+
 ## 项目结构
 
 ```
