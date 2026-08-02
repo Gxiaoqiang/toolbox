@@ -79,6 +79,20 @@ public enum ErrorCodeEnum {
     /** PDF 去水印处理失败 */
     PDF_DEWATERMARK_PROCESS_ERROR(500, "PDF 去水印处理失败，请稍后重试"),
 
+    // ===== PPT 转 PDF =====
+    /** PPT 文件为空 */
+    PPT_FILE_EMPTY(400, "请选择有效的 PPT 文件"),
+    /** PPT 格式不支持 */
+    PPT_FORMAT_INVALID(400, "仅支持 .ppt / .pptx 格式"),
+    /** PPT 文件超过大小限制 */
+    PPT_FILE_TOO_LARGE(400, "PPT 文件不能超过 50MB"),
+    /** PPT 转 PDF 失败 */
+    PPT_CONVERT_ERROR(500, "PPT 转 PDF 失败，请稍后重试"),
+    /** PPT 预览生成失败 */
+    PPT_PREVIEW_ERROR(500, "PPT 预览生成失败，请稍后重试"),
+    /** PPT 页面选择为空 */
+    PPT_PAGE_SELECTION_EMPTY(400, "请至少选择一页"),
+
     // ===== PDF 添加水印 =====
     /** 水印来源无效 */
     PDF_WATERMARK_SOURCE_INVALID(400, "水印来源无效，仅支持 text / image"),

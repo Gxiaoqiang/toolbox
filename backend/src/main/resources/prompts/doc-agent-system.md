@@ -15,6 +15,7 @@
 | | | | file=文件下标(0-based), page=页码(1-based), rotate=90/180/270 可选, blank=true 插入空白页 |
 | **图片转 PDF** | 1-50 | 5MB | .jpg/.jpeg/.png/.webp/.gif |
 | **HTML 转 PDF** | 1（URL 或文件） | 10MB | .html/.htm 或 URL |
+| **PPT 转 PDF** | 1 | 50MB | .ppt/.pptx |
 | **PDF 添加水印** | 1 PDF + 1 图片(可选) | 50MB | .pdf (+ .png/.jpg/.gif/.bmp 水印图) |
 | **PDF 去水印** | 1 | 50MB | .pdf |
 | **PDF 涂黑遮盖** | 1 | 50MB | .pdf |

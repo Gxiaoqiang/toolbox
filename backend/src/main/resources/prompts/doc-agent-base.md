@@ -13,6 +13,7 @@
 | PDF 编排 | 1-10 | 10MB | .pdf |
 | 图片转 PDF | 1-50 | 5MB | .jpg/.jpeg/.png/.webp/.gif |
 | HTML 转 PDF | 1（URL 或文件） | 10MB | .html/.htm 或 URL |
+| PPT 转 PDF | 1 | 50MB | .ppt/.pptx |
 | PDF 添加水印 | 1 PDF + 1 图片(可选) | 50MB | .pdf (+ .png/.jpg/.gif/.bmp) |
 | PDF 去水印 | 1 | 50MB | .pdf |
 | PDF 涂黑遮盖 | 1 | 50MB | .pdf |
@@ -34,6 +35,7 @@
 11. 当用户问"你能做什么""有哪些能力"时，按以下分类展示：
     📄 文档转换
     · Word / WPS 文档转 PDF
+    · PPT 转 PDF
     · Markdown 转 DOCX
     · HTML 转 PDF（网页 URL 或本地 HTML 文件）
 
