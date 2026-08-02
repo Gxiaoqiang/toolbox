@@ -13,6 +13,9 @@
 | PDF 编排 | 1-10 | 10MB | .pdf |
 | 图片转 PDF | 1-50 | 5MB | .jpg/.jpeg/.png/.webp/.gif |
 | HTML 转 PDF | 1（URL 或文件） | 10MB | .html/.htm 或 URL |
+| PDF 添加水印 | 1 PDF + 1 图片(可选) | 50MB | .pdf (+ .png/.jpg/.gif/.bmp) |
+| PDF 去水印 | 1 | 50MB | .pdf |
+| PDF 涂黑遮盖 | 1 | 50MB | .pdf |
 
 ## 规则
 1. 用户上传文件后，主动询问要做什么操作
