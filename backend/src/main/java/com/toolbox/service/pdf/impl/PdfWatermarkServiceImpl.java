@@ -62,8 +62,11 @@ public class PdfWatermarkServiceImpl implements PdfWatermarkService {
                     WatermarkRenderer.renderText(doc, page, font, request);
                 }
             } else if (SOURCE_IMAGE.equals(request.getSource())) {
-                // 图片水印在后续工单实现
-                throw new BusinessException(ErrorCodeEnum.PDF_WATERMARK_IMAGE_INVALID);
+                // 2.3 图片水印：逐页绘制
+                for (int pageIndex : targetPages) {
+                    PDPage page = doc.getPage(pageIndex - 1);
+                    WatermarkRenderer.renderImage(doc, page, request, imageBytes);
+                }
             }
 
             // 2.4 保存输出

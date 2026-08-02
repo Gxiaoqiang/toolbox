@@ -27,16 +27,14 @@ export const meta: ToolMeta = {
         <span v-if="stage === 'noFile'">上传 PDF</span>
         <span v-else class="max-w-[180px] truncate">{{ uploadedFile!.name }}</span>
       </button>
-
       <template v-if="stage !== 'noFile'">
         <span class="text-xs flex-shrink-0" style="color: var(--text-muted)">{{ formatSize(uploadedFile!.size) }}</span>
         <button v-if="stage !== 'processing'" @click="clearFile"
-          class="text-xs underline hover:text-red-500 transition-colors flex-shrink-0"
-          style="color: var(--text-muted)">移除</button>
+          class="text-xs underline hover:text-red-500 transition-colors flex-shrink-0" style="color: var(--text-muted)">移除</button>
         <div class="flex-1"></div>
         <span class="text-xs flex-shrink-0" style="color: var(--text-muted)">共 {{ totalPages }} 页</span>
         <label class="flex items-center gap-1.5 text-xs cursor-pointer flex-shrink-0" style="color: var(--text-primary)">
-          <input type="checkbox" v-model="previewMode" class="w-3.5 h-3.5 rounded accent-indigo-500" @change="redrawAllOverlays" />
+          <input type="checkbox" v-model="previewMode" class="w-3.5 h-3.5 rounded accent-indigo-500" />
           预览
         </label>
       </template>
@@ -46,40 +44,159 @@ export const meta: ToolMeta = {
 
     <!-- ====== 主区：左配置 + 右预览 ====== -->
     <div class="flex flex-1 overflow-hidden mt-3 gap-4" v-if="stage !== 'noFile' && stage !== 'processing'">
-      <!-- 左：配置表单 -->
-      <div class="w-72 flex-shrink-0 overflow-y-auto pr-1 space-y-4"
-        style="background: var(--bg-card); border: 1px solid var(--border-color)" :class="'rounded-2xl p-4'">
-        <p class="text-sm font-semibold" style="color: var(--text-primary)">水印内容</p>
-        <div>
-          <label class="text-xs block mb-1" style="color: var(--text-secondary)">水印文本</label>
-          <input v-model="watermark.text" type="text" placeholder="例如：内部资料"
-            class="w-full px-2 py-1.5 text-sm border rounded-md"
-            style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
+      <div class="w-72 flex-shrink-0 overflow-y-auto pr-1 space-y-4 rounded-2xl p-4"
+        style="background: var(--bg-card); border: 1px solid var(--border-color)">
+        <!-- 来源 -->
+        <div class="flex gap-2">
+          <button v-for="s in sources" :key="s.value" @click="watermark.source = s.value"
+            class="flex-1 py-1.5 text-xs rounded-lg border transition-colors"
+            :style="watermark.source === s.value
+              ? { background: 'var(--accent-light)', color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }
+              : { background: 'var(--bg-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }">
+            {{ s.label }}
+          </button>
         </div>
-        <div class="grid grid-cols-2 gap-2">
+
+        <!-- 文本水印 -->
+        <template v-if="watermark.source === 'text'">
           <div>
-            <label class="text-xs block mb-1" style="color: var(--text-secondary)">字号(pt)</label>
-            <input v-model.number="watermark.fontSize" type="number" min="8" max="200"
+            <label class="text-xs block mb-1" style="color: var(--text-secondary)">水印文本</label>
+            <input v-model="watermark.text" type="text" placeholder="例如：内部资料"
               class="w-full px-2 py-1.5 text-sm border rounded-md"
               style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
           </div>
-          <div>
-            <label class="text-xs block mb-1" style="color: var(--text-secondary)">颜色</label>
-            <input v-model="watermark.color" type="color" class="w-full h-8 border rounded-md cursor-pointer"
-              style="background: var(--bg-input); border-color: var(--border-color)" />
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">字号(pt)</label>
+              <input v-model.number="watermark.fontSize" type="number" min="8" max="200"
+                class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
+            </div>
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">颜色</label>
+              <input v-model="watermark.color" type="color" class="w-full h-8 border rounded-md cursor-pointer"
+                style="background: var(--bg-input); border-color: var(--border-color)" />
+            </div>
+          </div>
+        </template>
+
+        <!-- 图片水印 -->
+        <div v-else>
+          <label class="text-xs block mb-1" style="color: var(--text-secondary)">水印图片（PNG/JPG/GIF/BMP）</label>
+          <div class="border-2 border-dashed rounded-lg p-3 text-center cursor-pointer"
+            style="border-color: var(--border-color)"
+            @click="imageInputRef?.click()" @dragover.prevent @drop.prevent="onImageDrop">
+            <img v-if="imagePreviewUrl" :src="imagePreviewUrl" class="max-h-20 mx-auto mb-1" />
+            <p class="text-xs" style="color: var(--text-muted)">{{ imageFile ? imageFile.name : '点击选择图片' }}</p>
+          </div>
+          <input ref="imageInputRef" type="file" accept=".png,.jpg,.jpeg,.gif,.bmp" class="hidden" @change="onImageSelect" />
+        </div>
+
+        <!-- 外观 -->
+        <div class="pt-1 border-t" style="border-color: var(--border-color)">
+          <p class="text-xs font-semibold mb-2" style="color: var(--text-primary)">外观</p>
+          <div class="mb-2">
+            <label class="text-xs block mb-1" style="color: var(--text-secondary)">旋转角度</label>
+            <select v-model.number="watermark.angle" class="w-full px-2 py-1.5 text-sm border rounded-md"
+              style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)">
+              <option :value="0">无旋转 (0°)</option>
+              <option :value="45">45°</option>
+              <option :value="-45">-45°</option>
+              <option :value="watermark.customAngle">自定义</option>
+            </select>
+            <input v-if="Number(watermark.angle) === watermark.customAngle" v-model.number="watermark.customAngle"
+              type="number" class="mt-1 w-full px-2 py-1 text-sm border rounded-md"
+              style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" placeholder="输入角度" />
+          </div>
+          <div class="mb-2">
+            <label class="text-xs block mb-1" style="color: var(--text-secondary)">透明度：{{ Math.round(watermark.opacity * 100) }}%</label>
+            <input v-model.number="watermark.opacity" type="range" min="0" max="1" step="0.05" class="w-full" />
+          </div>
+          <div v-if="watermark.source === 'image'" class="mb-2">
+            <label class="text-xs block mb-1" style="color: var(--text-secondary)">相对页面宽度：{{ watermark.ratio }}%</label>
+            <input v-model.number="watermark.ratio" type="range" min="5" max="100" step="5" class="w-full" />
+          </div>
+          <label class="flex items-start gap-2 text-xs cursor-pointer" style="color: var(--text-secondary)">
+            <input type="checkbox" v-model="watermark.fixedRatio" class="mt-0.5 w-3.5 h-3.5 accent-indigo-500" />
+            固定水印比例（不同页面尺寸时保持大小不变）
+          </label>
+        </div>
+
+        <!-- 位置 -->
+        <div class="pt-1 border-t" style="border-color: var(--border-color)">
+          <p class="text-xs font-semibold mb-2" style="color: var(--text-primary)">位置</p>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">水平对齐</label>
+              <select v-model="watermark.alignX" class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)">
+                <option value="left">左</option><option value="center">居中</option><option value="right">右</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">垂直对齐</label>
+              <select v-model="watermark.alignY" class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)">
+                <option value="top">上方</option><option value="middle">居中</option><option value="bottom">下方</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">水平偏移(cm)</label>
+              <input v-model.number="watermark.offsetX" type="number" step="0.1" class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
+            </div>
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">垂直偏移(cm)</label>
+              <input v-model.number="watermark.offsetY" type="number" step="0.1" class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
+            </div>
           </div>
         </div>
 
-        <button @click="confirmAndSubmit" :disabled="!watermark.text.trim()"
+        <!-- 页面范围 -->
+        <div class="pt-1 border-t" style="border-color: var(--border-color)">
+          <p class="text-xs font-semibold mb-2" style="color: var(--text-primary)">页面范围</p>
+          <div class="flex items-center gap-2 text-xs mb-2">
+            <label class="flex items-center gap-1 cursor-pointer" style="color: var(--text-secondary)">
+              <input type="radio" value="all" v-model="watermark.range" class="accent-indigo-500" />所有页面
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer" style="color: var(--text-secondary)">
+              <input type="radio" value="pageRange" v-model="watermark.range" class="accent-indigo-500" />指定范围
+            </label>
+          </div>
+          <div v-if="watermark.range === 'pageRange'" class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">从页</label>
+              <input v-model.number="watermark.fromPage" type="number" min="1" class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
+            </div>
+            <div>
+              <label class="text-xs block mb-1" style="color: var(--text-secondary)">到页</label>
+              <input v-model.number="watermark.toPage" type="number" min="1" class="w-full px-2 py-1.5 text-sm border rounded-md"
+                style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)" />
+            </div>
+          </div>
+          <div>
+            <label class="text-xs block mb-1" style="color: var(--text-secondary)">子集</label>
+            <select v-model="watermark.subset" class="w-full px-2 py-1.5 text-sm border rounded-md"
+              style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)">
+              <option value="all">全部页面</option><option value="odd">奇数页</option><option value="even">偶数页</option>
+            </select>
+          </div>
+        </div>
+
+        <button @click="doSubmit" :disabled="!canSubmit"
           class="w-full py-2 rounded-lg text-sm font-medium text-white transition-colors hover:opacity-90"
-          :style="!watermark.text.trim()
-            ? { background: 'var(--bg-card-hover)', color: 'var(--text-muted)', cursor: 'not-allowed' }
-            : { background: 'var(--accent-color)' }">
+          :style="canSubmit
+            ? { background: 'var(--accent-color)' }
+            : { background: 'var(--bg-card-hover)', color: 'var(--text-muted)', cursor: 'not-allowed' }">
           💧 生成并下载
         </button>
       </div>
 
-      <!-- 右：预览区 -->
+      <!-- 右：预览 -->
       <div class="flex-1 overflow-y-auto rounded-lg" style="background: var(--bg-card-hover)">
         <div class="flex flex-col items-center gap-6 py-6">
           <div v-if="stage === 'error'" class="p-8 text-center">
@@ -121,34 +238,57 @@ export const meta: ToolMeta = {
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// ======================== pdfjs-dist v6 兼容补丁 ========================
 const proto = Uint8Array.prototype as any
 if (!proto.toHex) {
   proto.toHex = function (this: Uint8Array): string {
     return Array.from(this).map(b => b.toString(16).padStart(2, '0')).join('')
   }
 }
-
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
 const CMAP_URL = new URL('/assets/cmaps/', window.location.origin).toString()
 
-// ======================== 类型 ========================
 type Stage = 'noFile' | 'ready' | 'processing' | 'done' | 'error'
 
-// 水印配置（与后端 WatermarkRequest 一致；工单01 先支持文本+居中+全部页）
+const sources: { value: WatermarkConfig['source']; label: string }[] = [
+  { value: 'text', label: '文字水印' },
+  { value: 'image', label: '图片水印' },
+]
+
 interface WatermarkConfig {
   source: 'text' | 'image'
   text: string
   fontSize: number
   color: string
+  angle: number
+  customAngle: number
+  opacity: number
+  ratio: number
+  fixedRatio: boolean
+  alignX: 'left' | 'center' | 'right'
+  alignY: 'top' | 'middle' | 'bottom'
+  offsetX: number
+  offsetY: number
+  range: 'all' | 'pageRange'
+  fromPage: number
+  toPage: number
+  subset: 'all' | 'odd' | 'even'
 }
 
-// ======================== 状态 ========================
+const watermark = ref<WatermarkConfig>({
+  source: 'text', text: '内部资料', fontSize: 28, color: '#808080',
+  angle: 0, customAngle: 30, opacity: 0.5, ratio: 50, fixedRatio: false,
+  alignX: 'center', alignY: 'middle', offsetX: 0, offsetY: 0,
+  range: 'all', fromPage: 1, toPage: 1, subset: 'all',
+})
+
 const fileInputRef = ref<HTMLInputElement>()
+const imageInputRef = ref<HTMLInputElement>()
 const uploadedFile = ref<File | null>(null)
+const imageFile = ref<File | null>(null)
+const imagePreviewUrl = ref('')
 const stage = ref<Stage>('noFile')
 const processingLabel = ref('PDF 加载中，请稍候...')
 const errorMsg = ref('')
@@ -156,50 +296,93 @@ const totalPages = ref(0)
 const dragOver = ref(false)
 const previewMode = ref(true)
 
-const watermark = ref<WatermarkConfig>({ source: 'text', text: '内部资料', fontSize: 28, color: '#808080' })
-
 const pdfCanvases: HTMLCanvasElement[] = []
 const overlayCanvases: HTMLCanvasElement[] = []
 const pageScales: number[] = []
 let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null
 let fileArrayBuffer: ArrayBuffer | null = null
 let originalFilename = ''
-const pageImages: (HTMLImageElement | null)[] = []
+let imageElement: HTMLImageElement | null = null
 
-// ======================== 参数变化实时重绘预览 ========================
-watch([() => watermark.value.text, () => watermark.value.fontSize, () => watermark.value.color, previewMode], () => {
-  redrawAllOverlays()
-}, { deep: true })
+const canSubmit = computed(() => {
+  if (stage.value === 'processing' || stage.value !== 'ready') return false
+  if (watermark.value.source === 'text') return !!watermark.value.text.trim()
+  return !!imageFile.value
+})
 
-// ======================== Canvas 管理 ========================
+watch(watermark, () => redrawAllOverlays(), { deep: true })
+watch([previewMode, imagePreviewUrl], () => redrawAllOverlays())
+
 function setPdfCanvas(index: number, el: HTMLCanvasElement) { pdfCanvases[index] = el }
 function setOverlayCanvas(index: number, el: HTMLCanvasElement) { overlayCanvases[index] = el }
-function getOverlay(pageIndex: number) { return overlayCanvases[pageIndex] }
-function getPdfCanvas(pageIndex: number) { return pdfCanvases[pageIndex] }
+function getOverlay(i: number) { return overlayCanvases[i] }
+function getPdfCanvas(i: number) { return pdfCanvases[i] }
 
 function redrawAllOverlays() {
   for (let i = 0; i < totalPages.value; i++) drawOverlay(i)
 }
 
-/** 在 overlay 上绘制水印预览（居中文字，与后端坐标一致：Y 自下而上翻转） */
+// ======================== 预览绘制（与后端坐标/定位数学一致） ========================
+const CM_TO_PT = 28.3465
+
 function drawOverlay(pageIndex: number) {
   const canvas = getOverlay(pageIndex)
   if (!canvas) return
   const ctx = canvas.getContext('2d')!
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  if (stage.value !== 'ready' && stage.value !== 'done') return
-  if (!previewMode.value) return
-  if (!watermark.value.text.trim()) return
+  if (!previewMode.value || stage.value !== 'ready') return
 
   const scale = pageScales[pageIndex] || 1
-  const fontSize = watermark.value.fontSize * scale
+  const W = canvas.width
+  const H = canvas.height
+  const cfg = watermark.value
+
+  // 计算水印尺寸（canvas 像素）
+  let wmW = 0, wmH = 0
+  if (cfg.source === 'text') {
+    const fs = cfg.fontSize * scale
+    ctx.font = `${fs}px sans-serif`
+    const m = ctx.measureText(cfg.text)
+    wmW = m.width
+    wmH = fs * 1.2
+  } else if (imageElement) {
+    if (cfg.fixedRatio) {
+      wmW = imageElement.naturalWidth
+      wmH = imageElement.naturalHeight
+    } else {
+      wmW = W * (cfg.ratio / 100)
+      wmH = wmW * (imageElement.naturalHeight / imageElement.naturalWidth)
+    }
+  }
+  if (wmW <= 0 || wmH <= 0) return
+
+  // 对齐 + 偏移（cm→pt→px）
+  const offsetXPx = cfg.offsetX * CM_TO_PT * scale
+  const offsetYPx = cfg.offsetY * CM_TO_PT * scale
+  let x = 0
+  if (cfg.alignX === 'center') x = (W - wmW) / 2
+  else if (cfg.alignX === 'right') x = W - wmW
+  let y = 0
+  if (cfg.alignY === 'middle') y = (H - wmH) / 2
+  else if (cfg.alignY === 'bottom') y = H - wmH
+  x += offsetXPx
+  y += offsetYPx
+
+  const cx = x + wmW / 2
+  const cy = y + wmH / 2
+
   ctx.save()
-  ctx.font = `${fontSize}px sans-serif`
-  ctx.fillStyle = watermark.value.color
-  ctx.globalAlpha = 0.5
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(watermark.value.text, canvas.width / 2, canvas.height / 2)
+  ctx.translate(cx, cy)
+  ctx.rotate((cfg.angle * Math.PI) / 180)
+  ctx.globalAlpha = Math.max(0, Math.min(1, cfg.opacity))
+  if (cfg.source === 'text') {
+    ctx.fillStyle = cfg.color
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(cfg.text, 0, 0)
+  } else if (imageElement) {
+    ctx.drawImage(imageElement, -wmW / 2, -wmH / 2, wmW, wmH)
+  }
   ctx.restore()
 }
 
@@ -214,6 +397,22 @@ function handleDrop(e: DragEvent) {
   const f = e.dataTransfer?.files?.[0]
   if (f && (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))) loadFile(f)
 }
+function onImageSelect(e: Event) {
+  const files = (e.target as HTMLInputElement).files
+  if (files && files.length > 0) setImage(files[0])
+}
+function onImageDrop(e: DragEvent) {
+  const f = e.dataTransfer?.files?.[0]
+  if (f) setImage(f)
+}
+function setImage(f: File) {
+  imageFile.value = f
+  imageElement = new Image()
+  const url = URL.createObjectURL(f)
+  imageElement.onload = () => { imagePreviewUrl.value = url; redrawAllOverlays() }
+  imageElement.src = url
+}
+
 function clearFile() {
   uploadedFile.value = null
   if (fileInputRef.value) fileInputRef.value.value = ''
@@ -248,10 +447,9 @@ async function loadFile(file: File) {
   }
 }
 
-// ======================== PDF 渲染（全页） ========================
 async function renderAllPages() {
   if (!pdfDoc) return
-  const containerWidth = (getPreviewWidth()) - 80
+  const containerWidth = Math.min(window.innerWidth - 360, 900) - 80
   for (let i = 0; i < totalPages.value; i++) {
     const page = await pdfDoc.getPage(i + 1)
     const baseViewport = page.getViewport({ scale: 1 })
@@ -268,18 +466,14 @@ async function renderAllPages() {
     try {
       await Promise.race([
         page.render({ canvas: pdfCanvas, viewport }).promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('render timeout')), 30000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000)),
       ])
-    } catch (e: any) {
+    } catch {
       const ctx = pdfCanvas.getContext('2d')
       if (ctx) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, viewport.width, viewport.height) }
     }
   }
   redrawAllOverlays()
-}
-
-function getPreviewWidth() {
-  return Math.min(window.innerWidth - 360, 900)
 }
 
 async function checkAndFallbackRender() {
@@ -290,24 +484,17 @@ async function checkAndFallbackRender() {
     if (!canvas) continue
     const ctx = canvas.getContext('2d')
     if (!ctx) continue
-    const sampleSize = 10
-    const stepX = canvas.width / (sampleSize + 1)
-    const stepY = canvas.height / (sampleSize + 1)
-    const brightnesses: number[] = []
-    let allChannelsMin = 255
-    for (let sx = 1; sx <= sampleSize; sx++) {
-      for (let sy = 1; sy <= sampleSize; sy++) {
-        const pixel = ctx.getImageData(Math.round(sx * stepX), Math.round(sy * stepY), 1, 1).data
-        const b = pixel[0] * 0.299 + pixel[1] * 0.587 + pixel[2] * 0.114
-        brightnesses.push(b)
-        allChannelsMin = Math.min(allChannelsMin, pixel[0], pixel[1], pixel[2])
-      }
+    const s = 10, stepX = canvas.width / (s + 1), stepY = canvas.height / (s + 1)
+    const bs: number[] = []
+    let min = 255
+    for (let sx = 1; sx <= s; sx++) for (let sy = 1; sy <= s; sy++) {
+      const p = ctx.getImageData(Math.round(sx * stepX), Math.round(sy * stepY), 1, 1).data
+      const b = p[0] * 0.299 + p[1] * 0.587 + p[2] * 0.114
+      bs.push(b); min = Math.min(min, p[0], p[1], p[2])
     }
-    const mean = brightnesses.reduce((a, b) => a + b, 0) / brightnesses.length
-    const variance = brightnesses.reduce((s, b) => s + (b - mean) ** 2, 0) / brightnesses.length
-    if ((variance < 0.5 && mean > 250) || (!(variance < 0.5 && mean > 250) && allChannelsMin > 80 && mean > 180)) {
-      blankPages.push(i)
-    }
+    const mean = bs.reduce((a, b) => a + b, 0) / bs.length
+    const variance = bs.reduce((s2, b) => s2 + (b - mean) ** 2, 0) / bs.length
+    if ((variance < 0.5 && mean > 250) || (min > 80 && mean > 180)) blankPages.push(i)
   }
   if (blankPages.length === 0) return
   const pdfData = fileArrayBuffer!
@@ -322,17 +509,16 @@ async function checkAndFallbackRender() {
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
       const img = new Image()
-      await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(); img.src = url })
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = url })
       const canvas = getPdfCanvas(pageIndex)
       if (canvas) {
-        const pdfPageWidth = canvas.width / (pageScales[pageIndex] || 1)
+        const pdfW = canvas.width / (pageScales[pageIndex] || 1)
         canvas.width = img.width; canvas.height = img.height
         canvas.getContext('2d')!.drawImage(img, 0, 0)
-        pageScales[pageIndex] = img.width / pdfPageWidth
-        const overlay = getOverlay(pageIndex)
-        if (overlay) { overlay.width = img.width; overlay.height = img.height }
+        pageScales[pageIndex] = img.width / pdfW
+        const ov = getOverlay(pageIndex)
+        if (ov) { ov.width = img.width; ov.height = img.height }
       }
-      pageImages[pageIndex] = img
       URL.revokeObjectURL(url)
     } catch { /* ignore */ }
   }
@@ -341,22 +527,36 @@ async function checkAndFallbackRender() {
 }
 
 // ======================== 提交 ========================
-function confirmAndSubmit() { if (watermark.value.text.trim()) doSubmit() }
-
 async function doSubmit() {
-  if (!uploadedFile.value) return
+  if (!uploadedFile.value || !canSubmit.value) return
   errorMsg.value = ''
   processingLabel.value = '生成水印 PDF 中，请稍候...'
   stage.value = 'processing'
   try {
+    const cfg = watermark.value
+    const payload: Record<string, unknown> = {
+      source: cfg.source,
+      text: cfg.text,
+      fontSize: cfg.fontSize,
+      color: cfg.color,
+      angle: cfg.angle === cfg.customAngle ? cfg.customAngle : cfg.angle,
+      opacity: cfg.opacity,
+      ratio: cfg.ratio,
+      fixedRatio: cfg.fixedRatio,
+      alignX: cfg.alignX,
+      alignY: cfg.alignY,
+      offsetX: cfg.offsetX,
+      offsetY: cfg.offsetY,
+      range: cfg.range,
+      fromPage: cfg.range === 'pageRange' ? cfg.fromPage : null,
+      toPage: cfg.range === 'pageRange' ? cfg.toPage : null,
+      subset: cfg.subset,
+    }
     const formData = new FormData()
     formData.append('file', uploadedFile.value)
-    formData.append('watermark', JSON.stringify({
-      source: watermark.value.source,
-      text: watermark.value.text,
-      fontSize: watermark.value.fontSize,
-      color: watermark.value.color,
-    }))
+    formData.append('watermark', JSON.stringify(payload))
+    if (cfg.source === 'image' && imageFile.value) formData.append('image', imageFile.value)
+
     const resp = await fetch(`${window.location.origin}/api/pdf/watermark`, { method: 'POST', body: formData })
     if (!resp.ok) {
       const json = await resp.json().catch(() => null)
@@ -370,16 +570,12 @@ async function doSubmit() {
     a.click()
     URL.revokeObjectURL(url)
     stage.value = 'ready'
-    await nextTick()
-    await new Promise(r => requestAnimationFrame(r))
-    await renderAllPages()
   } catch (e: any) {
     errorMsg.value = e.message || '添加水印失败'
     stage.value = 'error'
   }
 }
 
-// ======================== 工具 ========================
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'

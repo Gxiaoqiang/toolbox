@@ -1,7 +1,11 @@
 package com.toolbox.service.pdf.impl;
 
 import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+
+import javax.imageio.ImageIO;
 
 import com.toolbox.model.pdf.WatermarkRequest;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -9,6 +13,8 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.util.Matrix;
 import org.slf4j.Logger;
@@ -83,11 +89,13 @@ public class WatermarkRenderer {
             cs.beginText();
             cs.setFont(drawFont, fontSize);
 
-            // 绕文字块中心旋转 + 居中：A = T(center) × R(θ) × T(-half)
-            Matrix rot = rotationMatrix(angle);
-            Matrix transform = new Matrix(1, 0, 0, 1, cx, cy)
-                    .multiply(rot)
-                    .multiply(new Matrix(1, 0, 0, 1, -textWidth / 2f, -textHeight / 2f));
+            // 绕文字块中心旋转 + 居中（直接构造矩阵，避免 multiply 合成顺序问题）
+            double rad = Math.toRadians(angle);
+            float cos = (float) Math.cos(rad);
+            float sin = (float) Math.sin(rad);
+            Matrix transform = new Matrix(cos, sin, -sin, cos,
+                    cx - cos * textWidth / 2f + sin * textHeight / 2f,
+                    cy - sin * textWidth / 2f - cos * textHeight / 2f);
             cs.setTextMatrix(transform);
             cs.showText(text);
             cs.endText();
@@ -95,6 +103,73 @@ public class WatermarkRenderer {
 
         LOGGER.debug("[WatermarkRenderer#renderText] text={}, font={}, size={}, angle={}, opacity={}, color={}",
                 text, request.getFont(), fontSize, angle, opacity, color);
+    }
+
+    /**
+     * 在页面上绘制图片水印
+     * <p>
+     * 尺寸双轨：默认宽度 = 页面宽度 × ratio%；"固定水印比例"开启时用图片原始尺寸（1px≈1pt）。
+     *
+     * @param doc       当前打开的 PDF 文档
+     * @param page      目标页面
+     * @param request   水印配置
+     * @param imageBytes 水印图片字节（PNG/JPG/GIF/BMP）
+     * @throws IOException 解码或绘制失败
+     */
+    public static void renderImage(PDDocument doc, PDPage page, WatermarkRequest request, byte[] imageBytes)
+            throws IOException {
+        BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageBytes));
+        if (bi == null) {
+            throw new IOException("cannot decode watermark image");
+        }
+        int iw = bi.getWidth();
+        int ih = bi.getHeight();
+
+        PDRectangle media = page.getMediaBox();
+        float pageWidth = media.getWidth();
+        float pageHeight = media.getHeight();
+
+        boolean fixed = request.getFixedRatio() != null && request.getFixedRatio();
+        float wmW;
+        float wmH;
+        if (fixed) {
+            wmW = iw;
+            wmH = ih;
+        } else {
+            float ratio = request.getRatio() != null ? (float) (request.getRatio() / 100.0) : 0.5f;
+            wmW = pageWidth * ratio;
+            wmH = wmW * ih / (float) iw;
+        }
+
+        float[] anchor = computeAnchor(pageWidth, pageHeight, wmW, wmH, request);
+        float cx = anchor[0] + wmW / 2f;
+        float cy = anchor[1] + wmH / 2f;
+
+        double angle = request.getAngle() != null ? request.getAngle() : 0d;
+        double opacity = clampOpacity(request.getOpacity());
+
+        PDImageXObject img = LosslessFactory.createFromImage(doc, bi);
+        try (PDPageContentStream cs = new PDPageContentStream(
+                doc, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+
+            PDExtendedGraphicsState ext = new PDExtendedGraphicsState();
+            ext.setNonStrokingAlphaConstant((float) opacity);
+            ext.setAlphaSourceFlag(true);
+            cs.setGraphicsStateParameters(ext);
+
+            // Do 绘制图片是填充单位正方形 [0,1]x[0,1]，故线性缩放到 wmW/wmH 即可。
+            // 直接构造矩阵（线性=R×S、平移=center + R*(-half)），避免 multiply 合成顺序问题
+            double rad = Math.toRadians(angle);
+            float cos = (float) Math.cos(rad);
+            float sin = (float) Math.sin(rad);
+            Matrix transform = new Matrix(cos * wmW, sin * wmW, -sin * wmH, cos * wmH,
+                    cx - cos * wmW / 2f + sin * wmH / 2f,
+                    cy - sin * wmW / 2f - cos * wmH / 2f);
+            cs.drawImage(img, transform);
+        }
+
+        LOGGER.debug("[WatermarkRenderer#renderImage] size={}x{}, wm={}x{}, angle={}, opacity={}, fixed={}",
+                iw, ih, wmW, wmH, angle, opacity, fixed);
     }
 
     /**
@@ -124,15 +199,6 @@ public class WatermarkRenderer {
             default -> y = (pageHeight - contentHeight) / 2f + offsetY;
         }
         return new float[]{x, y};
-    }
-
-    /**
-     * 构建旋转矩阵（PDF 用户空间逆时针）
-     */
-    private static Matrix rotationMatrix(double angleDeg) {
-        double rad = Math.toRadians(angleDeg);
-        return new Matrix((float) Math.cos(rad), (float) Math.sin(rad),
-                (float) -Math.sin(rad), (float) Math.cos(rad), 0, 0);
     }
 
     /**

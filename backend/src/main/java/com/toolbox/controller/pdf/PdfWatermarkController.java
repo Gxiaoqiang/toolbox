@@ -103,6 +103,14 @@ public class PdfWatermarkController {
     // ======================== 私有方法 ========================
 
     /**
+     * 校验 BMP 魔数（文件头 "BM"）
+     */
+    private boolean isBmpMagic(byte[] header) {
+        return header != null && header.length >= 2
+                && header[0] == 'B' && header[1] == 'M';
+    }
+
+    /**
      * 校验上传的 PDF 文件
      */
     private void validatePdf(MultipartFile file) {
@@ -134,7 +142,8 @@ public class PdfWatermarkController {
                 || FileTypeValidator.hasExtension(name, "jpeg")
                 || FileTypeValidator.hasExtension(name, "gif")
                 || FileTypeValidator.hasExtension(name, "bmp"));
-        boolean magicOk = FileTypeValidator.isValidImageMagic(FileTypeValidator.readHeader(image, 12));
+        boolean magicOk = FileTypeValidator.isValidImageMagic(FileTypeValidator.readHeader(image, 12))
+                || isBmpMagic(FileTypeValidator.readHeader(image, 2));
         if (!extOk || !magicOk) {
             throw new BusinessException(ErrorCodeEnum.PDF_WATERMARK_IMAGE_INVALID);
         }
