@@ -181,6 +181,8 @@ Dockerfile 已内置 LibreOffice + 中文字体（Noto CJK + WQY），无需额�
 
 文档助手需要配置 LLM API Key 才能使用。支持三种 LLM 提供商：
 
+> **本地运行**：默认启用 `local` profile，会读取（gitignore 的）`backend/src/main/resources/application-local.yml` 中的本地密钥，无需每次设置环境变量；生产/CI 请用环境变量 `LLM_API_KEY` 覆盖，勿提交明文密钥。
+
 ### 环境变量配置
 
 ```bash

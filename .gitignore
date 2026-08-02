@@ -50,6 +50,9 @@ deploy-commands.md
 deploy-server.sh
 runtime.Dockerfile
 
+# 本地配置（含密钥，勿提交）
+backend/src/main/resources/application-local.yml
+
 # 开发上下文文档（本地使用）
 CONTEXT.md
 DEPLOY-OFFLINE.md
