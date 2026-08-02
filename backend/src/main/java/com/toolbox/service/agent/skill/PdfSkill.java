@@ -2,6 +2,10 @@ package com.toolbox.service.agent.skill;
 
 import com.toolbox.exception.BusinessException;
 import com.toolbox.model.common.PdfArrangeItem;
+import com.toolbox.model.pdf.DewatermarkRequest;
+import com.toolbox.model.pdf.DewatermarkResult;
+import com.toolbox.model.pdf.RedactRequest;
+import com.toolbox.model.pdf.WatermarkRequest;
 import com.toolbox.service.pdf.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,6 +39,9 @@ public class PdfSkill implements AgentSkill {
     private final PdfToImageService pdfToImageService;
     private final PdfArrangeService pdfArrangeService;
     private final PdfEncryptService pdfEncryptService;
+    private final PdfWatermarkService pdfWatermarkService;
+    private final PdfDewatermarkService pdfDewatermarkService;
+    private final PdfRedactService pdfRedactService;
     private final ObjectMapper objectMapper;
 
     public PdfSkill(ToolkitContext ctx, PdfService pdfService,
@@ -42,6 +49,9 @@ public class PdfSkill implements AgentSkill {
                     PdfToImageService pdfToImageService,
                     PdfArrangeService pdfArrangeService,
                     PdfEncryptService pdfEncryptService,
+                    PdfWatermarkService pdfWatermarkService,
+                    PdfDewatermarkService pdfDewatermarkService,
+                    PdfRedactService pdfRedactService,
                     ObjectMapper objectMapper) {
         this.ctx = ctx;
         this.pdfService = pdfService;
@@ -49,6 +59,9 @@ public class PdfSkill implements AgentSkill {
         this.pdfToImageService = pdfToImageService;
         this.pdfArrangeService = pdfArrangeService;
         this.pdfEncryptService = pdfEncryptService;
+        this.pdfWatermarkService = pdfWatermarkService;
+        this.pdfDewatermarkService = pdfDewatermarkService;
+        this.pdfRedactService = pdfRedactService;
         this.objectMapper = objectMapper;
     }
 
@@ -58,12 +71,13 @@ public class PdfSkill implements AgentSkill {
     public String name() { return "pdf"; }
 
     @Override
-    public String description() { return "PDF 处理（切分/合并/压缩/转图片/编排/加密）"; }
+    public String description() { return "PDF 处理（切分/合并/压缩/转图片/编排/加密/加水印/去水印/涂黑）"; }
 
     @Override
     public List<String> keywords() {
         return List.of("切分", "拆分", "分割", "合并", "压缩", "转图片", "转成图片",
-                "编排", "排序", "删页", "删除页", "旋转", "加密", "解密", "加密码", "PDF");
+                "编排", "排序", "删页", "删除页", "旋转", "加密", "解密", "加密码",
+                "水印", "加印", "打水印", "去水印", "去印", "涂黑", "遮盖", "遮挡", "PDF");
     }
 
     @Override
@@ -329,7 +343,223 @@ public class PdfSkill implements AgentSkill {
         }
     }
 
+    // ===== PDF 水印 / 去水印 / 涂黑 =====
+
+    @Tool(name = "pdfWatermark", description = "给 PDF 添加水印。source=text 为文字水印，source=image 为图片水印（需上传图片）")
+    public String pdfWatermark(
+            @ToolParam(name = "fileId", required = true, description = "上传的 PDF 文件 ID")
+            String fileId,
+            @ToolParam(name = "source", description = "水印来源: text(默认) / image")
+            String source,
+            @ToolParam(name = "text", description = "水印文字（文字水印必填），如 '内部资料'")
+            String text,
+            @ToolParam(name = "fontSize", description = "字号(pt)，默认 28")
+            Integer fontSize,
+            @ToolParam(name = "color", description = "颜色 hex，如 '#808080'")
+            String color,
+            @ToolParam(name = "angle", description = "旋转角度(度)，默认 0")
+            Double angle,
+            @ToolParam(name = "opacity", description = "透明度 0-1，默认 0.5")
+            Double opacity,
+            @ToolParam(name = "ratio", description = "图片水印宽度占页面百分比 5-100，默认 50")
+            Integer ratio,
+            @ToolParam(name = "fixedRatio", description = "固定水印比例（不随页面缩放），默认 false")
+            Boolean fixedRatio,
+            @ToolParam(name = "alignX", description = "水平对齐 left/center/right，默认 center")
+            String alignX,
+            @ToolParam(name = "alignY", description = "垂直对齐 top/middle/bottom，默认 middle")
+            String alignY,
+            @ToolParam(name = "offsetX", description = "水平偏移(cm)，默认 0")
+            Double offsetX,
+            @ToolParam(name = "offsetY", description = "垂直偏移(cm)，默认 0")
+            Double offsetY,
+            @ToolParam(name = "range", description = "应用范围 all(默认)/pageRange")
+            String range,
+            @ToolParam(name = "fromPage", description = "起始页(1-based, range=pageRange 时)")
+            Integer fromPage,
+            @ToolParam(name = "toPage", description = "结束页(range=pageRange 时)")
+            Integer toPage,
+            @ToolParam(name = "subset", description = "子集 all/odd/even，默认 all")
+            String subset,
+            @ToolParam(name = "imageFileId", description = "图片水印的图片文件 ID（source=image 时）")
+            String imageFileId) {
+
+        try {
+            byte[] pdfBytes = ctx.loadFile(fileId);
+            String baseName = ToolkitContext.extractBaseName(fileId);
+
+            WatermarkRequest req = new WatermarkRequest();
+            req.setSource(source != null ? source : "text");
+            req.setText(text);
+            if (fontSize != null) req.setFontSize(fontSize.floatValue());
+            if (color != null) req.setColor(color);
+            if (angle != null) req.setAngle(angle);
+            if (opacity != null) req.setOpacity(opacity);
+            if (ratio != null) req.setRatio(ratio.doubleValue());
+            if (fixedRatio != null) req.setFixedRatio(fixedRatio);
+            if (alignX != null) req.setAlignX(alignX);
+            if (alignY != null) req.setAlignY(alignY);
+            if (offsetX != null) req.setOffsetX(offsetX);
+            if (offsetY != null) req.setOffsetY(offsetY);
+            if (range != null) req.setRange(range);
+            if (fromPage != null) req.setFromPage(fromPage);
+            if (toPage != null) req.setToPage(toPage);
+            if (subset != null) req.setSubset(subset);
+
+            byte[] imageBytes = (imageFileId != null && !imageFileId.isBlank())
+                    ? ctx.loadFile(imageFileId) : null;
+            byte[] result = pdfWatermarkService.addWatermark(pdfBytes, baseName + ".pdf", req, imageBytes);
+
+            String resultId = ctx.storeFile(result, baseName + "_watermarked.pdf");
+            ctx.putResult(ctx.getCurrentConversationId(),
+                    new ToolkitContext.ToolResult(resultId, baseName + "_watermarked.pdf", result.length));
+            return String.format("水印添加完成！文件 ID: %s, 大小: %.1fMB",
+                    resultId, result.length / (1024.0 * 1024.0));
+        } catch (BusinessException e) {
+            return "加水印失败: " + e.getMessage();
+        } catch (Exception e) {
+            log.error("[PdfSkill#pdfWatermark] failed", e);
+            return "PDF 添加水印失败，请稍后重试。";
+        }
+    }
+
+    @Tool(name = "pdfDewatermark", description = "去除 PDF 水印。按水印大致位置(position)删除对应区域文字/图片水印，保留正文")
+    public String pdfDewatermark(
+            @ToolParam(name = "fileId", required = true, description = "上传的 PDF 文件 ID")
+            String fileId,
+            @ToolParam(name = "position", required = true, description = "水印位置: center(居中)/top(上方)/bottom(下方)/left(左侧)/right(右侧)/tl(左上)/tr(右上)/bl(左下)/br(右下)")
+            String position,
+            @ToolParam(name = "applyTo", description = "应用范围 all(默认所有页)/page(仅指定页)")
+            String applyTo,
+            @ToolParam(name = "page", description = "applyTo=page 时指定页(1-based)")
+            Integer page) {
+
+        try {
+            byte[] pdfBytes = ctx.loadFile(fileId);
+            String baseName = ToolkitContext.extractBaseName(fileId);
+
+            DewatermarkRequest req = new DewatermarkRequest();
+            req.setApplyTo("page".equals(applyTo) && page != null ? "page" : "all");
+            req.setRegions(buildDewatermarkRegions(pdfBytes, position, page));
+
+            DewatermarkResult result = pdfDewatermarkService.dewatermark(pdfBytes, baseName + ".pdf", req);
+            byte[] out = java.util.Base64.getDecoder().decode(result.getPdfBase64());
+
+            String resultId = ctx.storeFile(out, baseName + "_dewatermarked.pdf");
+            ctx.putResult(ctx.getCurrentConversationId(),
+                    new ToolkitContext.ToolResult(resultId, baseName + "_dewatermarked.pdf", out.length));
+            String failed = result.getFailed() == null || result.getFailed().isEmpty() ? "" :
+                    String.format("，%d 个区域未能自动去除", result.getFailed().size());
+            return String.format("去水印完成！已去除 %d 个区域%s, 文件 ID: %s, 大小: %.1fMB",
+                    result.getRemoved() == null ? 0 : result.getRemoved().size(),
+                    failed, resultId, out.length / (1024.0 * 1024.0));
+        } catch (BusinessException e) {
+            return "去水印失败: " + e.getMessage();
+        } catch (Exception e) {
+            log.error("[PdfSkill#pdfDewatermark] failed", e);
+            return "PDF 去水印失败，请稍后重试。";
+        }
+    }
+
+    @Tool(name = "pdfRedact", description = "PDF 涂黑遮盖。在指定位置绘制方块遮盖敏感内容，mode=deep 时彻底清除该区域底层内容")
+    public String pdfRedact(
+            @ToolParam(name = "fileId", required = true, description = "上传的 PDF 文件 ID")
+            String fileId,
+            @ToolParam(name = "position", required = true, description = "遮盖位置: center/top/bottom/left/right/tl/tr/bl/br")
+            String position,
+            @ToolParam(name = "mode", description = "遮盖模式 standard(覆盖)/deep(彻底清除)，默认 standard")
+            String mode,
+            @ToolParam(name = "applyTo", description = "应用范围 all(默认所有页)/page(仅指定页)")
+            String applyTo,
+            @ToolParam(name = "page", description = "applyTo=page 时指定页(1-based)")
+            Integer page) {
+
+        try {
+            byte[] pdfBytes = ctx.loadFile(fileId);
+            String baseName = ToolkitContext.extractBaseName(fileId);
+
+            RedactRequest req = new RedactRequest();
+            req.setMode(mode != null ? mode : "standard");
+            req.setRects(buildRedactRects(pdfBytes, position, page,
+                    "page".equals(applyTo) && page != null));
+
+            byte[] result = pdfRedactService.redact(pdfBytes, baseName + ".pdf", req);
+
+            String resultId = ctx.storeFile(result, baseName + "_redacted.pdf");
+            ctx.putResult(ctx.getCurrentConversationId(),
+                    new ToolkitContext.ToolResult(resultId, baseName + "_redacted.pdf", result.length));
+            return String.format("涂黑遮盖完成！文件 ID: %s, 大小: %.1fMB",
+                    resultId, result.length / (1024.0 * 1024.0));
+        } catch (BusinessException e) {
+            return "涂黑遮盖失败: " + e.getMessage();
+        } catch (Exception e) {
+            log.error("[PdfSkill#pdfRedact] failed", e);
+            return "PDF 涂黑遮盖失败，请稍后重试。";
+        }
+    }
+
     // ===== 辅助方法 =====
+
+    /**
+     * 根据位置预设构建去水印区域（前端左上角坐标系，points）
+     */
+    private List<DewatermarkRequest.RegionItem> buildDewatermarkRegions(byte[] pdfBytes, String position, Integer page) {
+        List<DewatermarkRequest.RegionItem> regions = new ArrayList<>();
+        int targetPage = (page != null && page >= 1) ? page - 1 : 0;
+        float[] wh = readPageSize(pdfBytes, targetPage);
+        if (wh == null) wh = new float[]{612, 792};
+        float W = wh[0], H = wh[1];
+        float[] box = positionBox(position, W, H);
+        regions.add(new DewatermarkRequest.RegionItem(targetPage, box[0], box[1], box[2], box[3]));
+        return regions;
+    }
+
+    /**
+     * 根据位置预设构建涂黑矩形（前端左上角坐标系）
+     */
+    private List<RedactRequest.RectItem> buildRedactRects(byte[] pdfBytes, String position, Integer page, boolean singlePage) {
+        List<RedactRequest.RectItem> rects = new ArrayList<>();
+        int targetPage = (page != null && page >= 1) ? page - 1 : 0;
+        float[] wh = readPageSize(pdfBytes, targetPage);
+        if (wh == null) wh = new float[]{612, 792};
+        float W = wh[0], H = wh[1];
+        float[] box = positionBox(position, W, H);
+        rects.add(new RedactRequest.RectItem(targetPage, box[0], box[1], box[2], box[3], "#000000"));
+        return rects;
+    }
+
+    /**
+     * 位置预设 → 前端左上角区域 [x, y, w, h]（页面分数 → points）
+     */
+    private static float[] positionBox(String pos, float W, float H) {
+        String p = pos == null ? "center" : pos.trim().toLowerCase();
+        float x, y, w, h;
+        switch (p) {
+            case "top" -> { x = 0; y = 0; w = W; h = H * 0.25f; }
+            case "bottom" -> { x = 0; y = H * 0.75f; w = W; h = H * 0.25f; }
+            case "left" -> { x = 0; y = 0; w = W * 0.25f; h = H; }
+            case "right" -> { x = W * 0.75f; y = 0; w = W * 0.25f; h = H; }
+            case "tl" -> { x = 0; y = 0; w = W * 0.3f; h = H * 0.3f; }
+            case "tr" -> { x = W * 0.7f; y = 0; w = W * 0.3f; h = H * 0.3f; }
+            case "bl" -> { x = 0; y = H * 0.7f; w = W * 0.3f; h = H * 0.3f; }
+            case "br" -> { x = W * 0.7f; y = H * 0.7f; w = W * 0.3f; h = H * 0.3f; }
+            default -> { x = W * 0.25f; y = H * 0.25f; w = W * 0.5f; h = H * 0.5f; } // center
+        }
+        return new float[]{x, y, w, h};
+    }
+
+    /**
+     * 读取某页的宽高（points）
+     */
+    private static float[] readPageSize(byte[] pdfBytes, int pageIndex) {
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
+            if (pageIndex < 0 || pageIndex >= doc.getNumberOfPages()) return null;
+            PDRectangle box = doc.getPage(pageIndex).getMediaBox();
+            return new float[]{box.getWidth(), box.getHeight()};
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     private int estimatePageCount(byte[] pdfBytes) {
         int count = 0;

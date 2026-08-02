@@ -125,3 +125,6 @@ DOCUMENT_CONVERT_PROCESS_ERROR
 - 三级缩进: 分类 `px-2` → 分组/工具 `pl-6` → 组内工具 `pl-9`
 - 分组可折叠: `collapsedGroups: Set<string>`，默认展开
 - PDF 工具包图标: 📑，颜色 `#6366f1`（indigo）
+
+## 8. Controller请求的参数
+- 如果Controller中请求的参数超过四个，要抽象成请求类，命名可以参考xxxRequest

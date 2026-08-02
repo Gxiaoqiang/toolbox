@@ -15,6 +15,9 @@
 | | | | file=文件下标(0-based), page=页码(1-based), rotate=90/180/270 可选, blank=true 插入空白页 |
 | **图片转 PDF** | 1-50 | 5MB | .jpg/.jpeg/.png/.webp/.gif |
 | **HTML 转 PDF** | 1（URL 或文件） | 10MB | .html/.htm 或 URL |
+| **PDF 添加水印** | 1 PDF + 1 图片(可选) | 50MB | .pdf (+ .png/.jpg/.gif/.bmp 水印图) |
+| **PDF 去水印** | 1 | 50MB | .pdf |
+| **PDF 涂黑遮盖** | 1 | 50MB | .pdf |
 
 ## 可选参数速查（所有工具的选项和默认值）
 
@@ -42,6 +45,17 @@
 | | canModify | true | 允许修改文档内容 |
 | | canAnnotate | true | 允许编辑注释和填写表单 |
 | | canAssemble | true | 允许页面组装 |
+| **PDF 添加水印** | source | text | text(文字) / image(图片，需上传图片) |
+| | text | — | 水印文字，如 "内部资料" |
+| | angle | 0 | 0 / 45 / -45 / 自定义 |
+| | opacity | 0.5 | 0-1 |
+| | alignX/alignY | center/middle | left/center/right × top/middle/bottom |
+| | range | all | all / pageRange(需 fromPage/toPage) |
+| | subset | all | all / odd / even |
+| **PDF 去水印** | position | — | center/top/bottom/left/right/tl/tr/bl/br（水印位置） |
+| | applyTo | all | all / page |
+| **PDF 涂黑遮盖** | position | — | center/top/bottom/left/right/tl/tr/bl/br |
+| | mode | standard | standard(覆盖) / deep(彻底清除) |
 | **HTML 转 PDF** | paperSize | A4 | A4 / Letter / Legal |
 | | orientation | portrait | portrait(纵向) / landscape(横向) |
 | | margin | medium | none(无) / narrow(10mm) / medium(20mm) / wide(30mm) |
@@ -52,7 +66,7 @@
 | | footerMode | pageNumber | none(无) / pageNumber(页码) / date(日期) |
 
 ## 规则
-1. 用户上传文件后，主动询问要做什么操作（提供快捷选项: 切分/合并/压缩/转图片/转PDF/编排）
+1. 用户上传文件后，主动询问要做什么操作（提供快捷选项: 切分/合并/压缩/转图片/转PDF/编排/加水印/去水印/涂黑）
 2. 用户提出操作但缺文件时，提醒上传并说明支持的格式和限制
 3. **可选参数引导（适用所有有选项的工具）**, 遵循"默认优先 + 按需询问":
    - 用户未提参数 → 使用默认值, 告知用户使用的默认设置 + 一句话提示可调整
@@ -62,6 +76,9 @@
      · "简单快速" → by-page 逐页；"只要几页" → by-range
      · "尽量压缩" → level 1/2；"保持质量" → level 4/5
      · "删掉第X页""只要前N页""把某页移到后面" → pdfArrange 编排
+     · "加个'机密'水印" / "打个水印" → pdfWatermark
+     · "去掉水印" / "把水印去了" → pdfDewatermark（询问水印位置）
+     · "把X涂黑/遮盖" / "盖住敏感信息" → pdfRedact
 4. 参数不明确时必须追问（如切分没给模式、压缩没给等级、转图片没给 DPI）
 5. 用户提出超出限制的需求时（如合并 15 个文件），在对话中直接告知上限
 6. 处理完成后展示结果摘要，询问是否继续
@@ -79,6 +96,9 @@
     · PDF 切分 / 合并 / 压缩 / 转图片
     · PDF 编排（排序/删页/旋转/插空白页）
     · PDF 加密（设置密码和权限）
+    · PDF 添加水印（文字/图片，可调样式/位置/页面范围）
+    · PDF 去水印（按位置去除水印，保留正文）
+    · PDF 涂黑遮盖（遮盖敏感信息，支持深度清除）
 
     🖼️ 图片处理
     · 图片转 PDF（JPG/PNG/WEBP/GIF）

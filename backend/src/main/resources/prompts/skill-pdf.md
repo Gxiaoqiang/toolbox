@@ -38,3 +38,45 @@
 - 至少填写一个密码（用户密码或所有者密码）。
 - 如果用户设置了所有者密码，需确认权限设置（默认全部允许，至少关闭一项）。
 - 权限包括：打印、复制/提取内容、修改文档内容、编辑注释和填写表单、页面组装。
+
+## PDF 添加水印（pdfWatermark）
+
+| 参数 | 说明 | 默认 | 可选值 |
+|------|------|------|--------|
+| source | 水印来源 | text | text(文字) / image(图片，需上传图片) |
+| text | 水印文字 | — | 如 "内部资料"、"机密文件" |
+| fontSize | 字号(pt) | 28 | 常用 16/24/28/36 |
+| color | 颜色 | #808080 | hex，如 #000000/#CC0000 |
+| angle | 旋转(度) | 0 | 0 / 45 / -45 / 自定义 |
+| opacity | 透明度 | 0.5 | 0-1，如 0.3(浅)/0.8(深) |
+| ratio | 图片水印宽度占页面% | 50 | 5-100 |
+| fixedRatio | 固定比例(不随页面缩放) | false | true/false |
+| alignX | 水平对齐 | center | left / center / right |
+| alignY | 垂直对齐 | middle | top / middle / bottom |
+| offsetX/offsetY | 偏移(cm) | 0 | 可正负 |
+| range | 应用范围 | all | all / pageRange |
+| fromPage/toPage | 页范围 | — | 1-based，range=pageRange 时 |
+| subset | 子集 | all | all / odd(奇数页) / even(偶数页) |
+
+**流程**：用户要求"加个水印"，需询问：文字还是图片水印、水印内容、是否要斜排/透明度等外观、位置（居中/上方/下方/页脚）、应用到哪些页。图片水印需用户上传图片。
+
+## PDF 去水印（pdfDewatermark）
+
+| 参数 | 说明 | 默认 | 可选值 |
+|------|------|------|--------|
+| position | 水印大致位置 | — | center(居中)/top(上方)/bottom(下方)/left(左)/right(右)/tl/tr/bl/br(四角) |
+| applyTo | 应用范围 | all | all(所有页) / page(仅指定页) |
+| page | 指定页 | — | 1-based，applyTo=page 时 |
+
+**流程**：用户要求"去掉水印"，询问水印在什么位置（居中/页眉/页脚/左上角等），据此填 position。若水印每页都在则用 all；只在某页则 applyTo=page。无法自动去除的区域会提示。
+
+## PDF 涂黑遮盖（pdfRedact）
+
+| 参数 | 说明 | 默认 | 可选值 |
+|------|------|------|--------|
+| position | 遮盖位置 | — | center/top/bottom/left/right/tl/tr/bl/br |
+| mode | 遮盖模式 | standard | standard(覆盖) / deep(彻底清除底层) |
+| applyTo | 应用范围 | all | all / page |
+| page | 指定页 | — | 1-based，applyTo=page 时 |
+
+**流程**：用户要求"把某处涂黑/遮盖"，询问要遮盖的位置（如"第2页下半部分"→bottom），填 position。敏感信息需要彻底清除时用 deep 模式。

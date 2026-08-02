@@ -87,9 +87,13 @@ public class DocAgentConfig {
                               PdfToImageService pdfToImageService,
                               PdfArrangeService pdfArrangeService,
                               PdfEncryptService pdfEncryptService,
+                              PdfWatermarkService pdfWatermarkService,
+                              PdfDewatermarkService pdfDewatermarkService,
+                              PdfRedactService pdfRedactService,
                               ObjectMapper objectMapper) {
         return new PdfSkill(ctx, pdfService, pdfCompressService,
-                pdfToImageService, pdfArrangeService, pdfEncryptService, objectMapper);
+                pdfToImageService, pdfArrangeService, pdfEncryptService,
+                pdfWatermarkService, pdfDewatermarkService, pdfRedactService, objectMapper);
     }
 
     @Bean
