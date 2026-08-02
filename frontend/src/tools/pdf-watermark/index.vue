@@ -384,6 +384,13 @@ watch(watermark, () => {
   recordHistory()
 }, { deep: true })
 watch([previewMode, imagePreviewUrl], () => redrawAllOverlays())
+// 范围/子集/从页/到页 改动需同步重绘（deep watch 对这些字段的反应性在部分场景不可靠）
+watch(
+  [() => watermark.value.range, () => watermark.value.subset,
+   () => watermark.value.fromPage, () => watermark.value.toPage],
+  () => redrawAllOverlays(),
+  { flush: 'sync' }
+)
 
 function setPdfCanvas(index: number, el: HTMLCanvasElement) { pdfCanvases[index] = el }
 function setOverlayCanvas(index: number, el: HTMLCanvasElement) { overlayCanvases[index] = el }
@@ -397,12 +404,32 @@ function redrawAllOverlays() {
 // ======================== 预览绘制（与后端坐标/定位数学一致） ========================
 const CM_TO_PT = 28.3465
 
+/** 按页面范围+子集判断某页（1-based）是否应显示水印（与后端 computeTargetPages 一致） */
+function isPageInRange(pageNumber: number): boolean {
+  const cfg = watermark.value
+  const total = totalPages.value
+  let start = 1
+  let end = total
+  if (cfg.range === 'pageRange') {
+    const from = cfg.fromPage || 1
+    const to = cfg.toPage || total
+    start = Math.max(1, Math.min(from, to))
+    end = Math.min(total, Math.max(from, to))
+  }
+  if (pageNumber < start || pageNumber > end) return false
+  if (cfg.subset === 'odd') return pageNumber % 2 === 1
+  if (cfg.subset === 'even') return pageNumber % 2 === 0
+  return true
+}
+
 function drawOverlay(pageIndex: number) {
   const canvas = getOverlay(pageIndex)
   if (!canvas) return
   const ctx = canvas.getContext('2d')!
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   if (!previewMode.value || stage.value !== 'ready') return
+  // 按页面范围+子集过滤：不在目标页则不在该页绘制水印
+  if (!isPageInRange(pageIndex + 1)) return
 
   const scale = pageScales[pageIndex] || 1
   const W = canvas.width
