@@ -52,8 +52,9 @@ export const meta: ToolMeta = {
 
     <input ref="fileInputRef" type="file" accept=".pdf,application/pdf" class="hidden" @change="handleFileSelect" />
 
-    <!-- ====== 主区：左配置 + 右预览 ====== -->
-    <div class="flex flex-1 overflow-hidden mt-3 gap-4" v-if="stage !== 'noFile' && stage !== 'processing'">
+    <!-- ====== 主区：左配置 + 右预览（处理中保持挂载，加遮罩避免闪烁） ====== -->
+    <div class="relative flex-1 overflow-hidden mt-3" v-if="stage !== 'noFile'">
+      <div class="flex h-full gap-4" :class="stage === 'processing' ? 'opacity-60 pointer-events-none' : ''">
       <div class="w-72 flex-shrink-0 overflow-y-auto pr-1 space-y-4 rounded-2xl p-4"
         style="background: var(--bg-card); border: 1px solid var(--border-color)">
         <!-- 来源 -->
@@ -221,9 +222,21 @@ export const meta: ToolMeta = {
           </div>
         </div>
       </div>
+      </div>
+
+      <!-- 处理中遮罩（预览区保持挂载，避免闪烁） -->
+      <div v-if="stage === 'processing'" class="absolute inset-0 z-10 flex items-center justify-center" style="background: rgba(0,0,0,0.12)">
+        <div class="flex flex-col items-center gap-3 p-6 rounded-2xl shadow-lg" style="background: var(--bg-card)">
+          <svg class="animate-spin" width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="var(--accent-color)" stroke-width="2" opacity="0.15"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <p class="text-sm" style="color: var(--text-muted)">{{ processingLabel }}</p>
+        </div>
+      </div>
     </div>
 
-    <!-- 无文件/处理中 -->
+    <!-- 无文件 -->
     <div v-if="stage === 'noFile'" class="flex-1 mt-3 flex items-center justify-center">
       <div class="border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-4 p-16 cursor-pointer transition-colors hover:border-indigo-400 hover:bg-indigo-50/30"
         style="border-color: var(--border-color); background: var(--bg-card)"
@@ -233,15 +246,6 @@ export const meta: ToolMeta = {
           <p class="text-base font-semibold" style="color: var(--text-primary)">拖拽 PDF 到此处</p>
           <p class="text-sm mt-1" style="color: var(--text-muted)">或点击选择文件 · 最大 50MB</p>
         </div>
-      </div>
-    </div>
-    <div v-if="stage === 'processing'" class="flex-1 mt-3 flex items-center justify-center">
-      <div class="flex flex-col items-center gap-4">
-        <svg class="animate-spin" width="48" height="48" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="var(--accent-color)" stroke-width="2" opacity="0.15"/>
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <p class="text-sm" style="color: var(--text-muted)">{{ processingLabel }}</p>
       </div>
     </div>
   </div>
