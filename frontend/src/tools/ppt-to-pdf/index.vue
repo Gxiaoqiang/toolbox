@@ -407,7 +407,8 @@ async function loadPreview(file: File) {
     }
 
     const result = await resp.json()
-    if (!result.isSuccess || !result.data) {
+    // R 统一响应体：code === 0 表示成功
+    if (result.code !== 0 || !result.data) {
       throw new Error(result.message || '预览加载失败')
     }
 

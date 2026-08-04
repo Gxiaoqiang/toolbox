@@ -144,9 +144,10 @@ public class AgentController {
             } catch (Exception e) {
                 log.error("[AgentController#chat] agent processing failed", e);
                 try {
+                    // 依据真实异常给用户反馈，避免一直等待
                     emitter.send(SseEmitter.event()
                             .name("error")
-                            .data(ChatEvent.error("处理时遇到了问题，请稍后重试。").toJson()));
+                            .data(ChatEvent.error(safeErrorMessage(e)).toJson()));
                     emitter.complete();
                 } catch (IOException ex) {
                     emitter.completeWithError(ex);
@@ -204,5 +205,21 @@ public class AgentController {
     public ResponseEntity<?> deleteConversation(@PathVariable String id) {
         conversationManager.delete(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 从异常中提取用户可读的简短错误消息（截断 + 剔除堆栈噪声），
+     * 用于 SSE 兜底 error 事件，让用户在异常时收到真实反馈而非一直等待
+     *
+     * @param e 异常
+     * @return 用户可读的错误描述
+     */
+    private String safeErrorMessage(Throwable e) {
+        String msg = e.getMessage() != null ? e.getMessage() : "未知错误";
+        // 截断过长的异常消息，避免刷屏
+        if (msg.length() > 150) {
+            msg = msg.substring(0, 150) + "...";
+        }
+        return "处理失败: " + msg;
     }
 }

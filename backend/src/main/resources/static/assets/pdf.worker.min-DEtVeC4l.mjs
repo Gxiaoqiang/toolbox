@@ -1,3 +1,7 @@
+
+if(!Uint8Array.prototype.toHex){Uint8Array.prototype.toHex=function(){return Array.from(this).map(b=>b.toString(16).padStart(2,"0")).join("")}};
+if(!Map.prototype.getOrInsertComputed){Map.prototype.getOrInsertComputed=function(k,cb){if(this.has(k))return this.get(k);var v=cb(k,this);this.set(k,v);return v}};
+if(!Map.prototype.getOrInsert){Map.prototype.getOrInsert=function(k,v){if(this.has(k))return this.get(k);this.set(k,v);return v}};
 /**
  * @licstart The following is the entire license notice for the
  * JavaScript code in this page

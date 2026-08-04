@@ -97,6 +97,52 @@ toolbox:
       upload-dir: /tmp/toolbox-agent
       cleanup-interval-minutes: 30
       max-file-size: 52428800
+    # 异常文案配置 — 关键词→用户提示文案，外部化避免硬编码；message 支持 {msg} 占位符
+    error:
+      fallback-message: "处理时遇到了问题，请稍后重试。如果持续出现，请联系管理员。"
+      rules:
+        # 用户层 — 文件相关
+        - keywords: ["文件为空", "empty"]
+          message: "文件为空，请上传有效的文件。"
+          log-error: false
+        - keywords: ["文件过大", "too large"]
+          message: "文件超过了大小限制。PDF 切分/压缩/转图片上限 50MB，合并单个上限 5MB。"
+          log-error: false
+        - keywords: ["文件不存在", "已过期"]
+          message: "文件已过期或不存在，请重新上传。"
+          log-error: false
+        - keywords: ["加密", "encrypted"]
+          message: "该 PDF 有密码保护，请解密后重新上传。"
+          log-error: false
+        - keywords: ["格式", "format", "不支持"]
+          message: "文件格式不支持。支持的格式: PDF / DOC / DOCX / WPS / MD。"
+          log-error: false
+        # 操作层 — 参数/逻辑
+        - keywords: ["至少需要", "too few"]
+          message: "文件数量不足。{msg}"
+          log-error: false
+        - keywords: ["最多", "too many"]
+          message: "文件数量超出限制。{msg}"
+          log-error: false
+        - keywords: ["页", "page"]
+          message: "页码范围有误。{msg}"
+          log-error: false
+        - keywords: ["等级", "level", "1-5"]
+          message: "压缩等级无效，有效范围 1-5。"
+          log-error: false
+        - keywords: ["不可用", "unavailable"]
+          message: "文档转 PDF 服务暂不可用（LibreOffice 未启动），请联系管理员。"
+          log-error: false
+        - keywords: ["轮次", "上限"]
+          message: "{msg}"
+          log-error: false
+        # 系统层 — 兜底
+        - keywords: ["timeout", "timed out", "超时"]
+          message: "AI 服务响应超时，请稍后重试。"
+          log-error: true
+        - keywords: ["disk", "空间"]
+          message: "服务器存储空间不足，请联系管理员。"
+          log-error: true
 
 logging:
   level:

@@ -202,6 +202,23 @@ if (!proto.toHex) {
     return Array.from(this).map(b => b.toString(16).padStart(2, '0')).join('')
   }
 }
+// pdfjs v6 依赖 ES2025 的 Map.prototype.getOrInsertComputed，旧版 Chrome(<130) 缺失需补齐
+const mapProto = Map.prototype as any
+if (!mapProto.getOrInsertComputed) {
+  mapProto.getOrInsertComputed = function (k: unknown, cb: (k: unknown, m: Map<unknown, unknown>) => unknown) {
+    if (this.has(k)) return this.get(k)
+    const v = cb(k, this)
+    this.set(k, v)
+    return v
+  }
+}
+if (!mapProto.getOrInsert) {
+  mapProto.getOrInsert = function (k: unknown, v: unknown) {
+    if (this.has(k)) return this.get(k)
+    this.set(k, v)
+    return v
+  }
+}
 
 // ======================== Worker 配置 ========================
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
@@ -385,8 +402,10 @@ async function loadFile(file: File) {
 
   try {
     fileArrayBuffer = await file.arrayBuffer()
+    // slice(0) 复制一份——pdfjs getDocument 会将 ArrayBuffer 转移到 Worker 导致原 buffer 被清空，
+    // 后续空白页回退渲染 render-page 还需复用 fileArrayBuffer
     pdfDoc = await pdfjsLib.getDocument({
-      data: fileArrayBuffer,
+      data: fileArrayBuffer.slice(0),
       cMapUrl: CMAP_URL,
       cMapPacked: true,
     }).promise
@@ -484,7 +503,8 @@ async function checkAndFallbackRender() {
   for (let i = 0; i < totalPages.value; i++) {
     const canvas = getPdfCanvas(i)
     if (!canvas) continue
-    const ctx = canvas.getContext('2d')
+    // willReadFrequently: 避免重复 getImageData 触发 Canvas2D 性能告警
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) continue
 
     // 10×10 网格采样
@@ -595,6 +615,8 @@ async function checkAndFallbackRender() {
       } catch (e) {
         console.warn(`[pdf-redact] page ${pageIndex}: backend fallback FAILED:`, e)
       }
+      // 节流：render-page 有后端限流，逐页串行+小间隔，避免批量触发 429 导致页面空白
+      await new Promise(r => setTimeout(r, 70))
     }
   } catch (e) {
     console.warn('[pdf-redact] backend fallback render failed:', e)
@@ -879,6 +901,8 @@ async function doSubmit() {
     await nextTick()
     await new Promise(r => requestAnimationFrame(r))
     await renderAllPages()
+    // 重新回退渲染 pdf.js 空白页，避免下载后空白页保持空白
+    await checkAndFallbackRender()
   } catch (e: any) {
     errorMsg.value = e.message || '遮盖处理失败'
     stage.value = 'error'

@@ -120,8 +120,8 @@ public class DocAgentConfig {
     // ===== Agent 核心 Beans =====
 
     @Bean
-    public ErrorClassifier errorClassifier() {
-        return new ErrorClassifier();
+    public ErrorClassifier errorClassifier(AgentErrorProperties errorProperties) {
+        return new ErrorClassifier(errorProperties);
     }
 
     @Bean

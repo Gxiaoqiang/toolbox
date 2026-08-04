@@ -29,13 +29,13 @@ const ownerPassword = ref('')
 const showUserPwd = ref(false)
 const showOwnerPwd = ref(false)
 
-// 权限
+// 权限：勾选=限制该操作（需输入权限密码才能执行），默认全部不限制
 const permissions = ref<Permission[]>([
-  { key: 'canPrint', label: '允许打印', value: true },
-  { key: 'canCopy', label: '允许复制/提取内容', value: true },
-  { key: 'canModify', label: '允许修改文档内容', value: true },
-  { key: 'canAnnotate', label: '允许编辑注释和填写表单', value: true },
-  { key: 'canAssemble', label: '允许页面组装', value: true },
+  { key: 'canPrint', label: '限制打印', value: false },
+  { key: 'canCopy', label: '限制复制/提取内容', value: false },
+  { key: 'canModify', label: '限制修改文档内容', value: false },
+  { key: 'canAnnotate', label: '限制编辑注释和填写表单', value: false },
+  { key: 'canAssemble', label: '限制页面组装', value: false },
 ])
 
 // 结果
@@ -46,12 +46,6 @@ const resultUrl = ref('')
 
 /** 权限面板是否可编辑（所有者密码满足强度要求后才可编辑） */
 const permissionsEditable = computed(() => ownerPwdValid.value && ownerPassword.value.trim().length > 0)
-
-/** 开启的权限数量 */
-const enabledCount = computed(() => permissions.value.filter(p => p.value).length)
-
-/** 是否所有权限都开启（需要至少关闭一个） */
-const allPermissionsOpen = computed(() => enabledCount.value === permissions.value.length)
 
 /** 密码强度校验 */
 const PASSWORD_REGEX = /^(?=.*[0-9])(?=.*[a-zA-Z]).{6,}$/
@@ -80,7 +74,6 @@ const canSubmit = computed(() => {
   if (!hasAtLeastOnePassword.value) return false
   if (!userPwdValid.value || !ownerPwdValid.value) return false
   if (passwordsSame.value) return false
-  if (permissionsEditable.value && allPermissionsOpen.value) return false
   return true
 })
 
@@ -91,7 +84,6 @@ const submitDisabledReason = computed(() => {
   if (!userPwdValid.value) return '用户密码强度不足'
   if (!ownerPwdValid.value) return '所有者密码强度不足'
   if (passwordsSame.value) return '两个密码不能相同'
-  if (permissionsEditable.value && allPermissionsOpen.value) return '至少需要关闭一项权限'
   return ''
 })
 
@@ -152,9 +144,6 @@ function togglePermission(key: string) {
   const perm = permissions.value.find(p => p.key === key)
   if (!perm) return
 
-  // 如果只剩一个开启，且点击的是这个开启的，禁止关闭
-  if (perm.value && enabledCount.value === 1) return
-
   perm.value = !perm.value
 }
 
@@ -177,7 +166,8 @@ async function startEncrypt() {
     formData.append('ownerPassword', ownerPassword.value)
 
     for (const perm of permissions.value) {
-      formData.append(perm.key, String(perm.value))
+      // 前端勾选=限制该操作，后端 canX=true=允许，故取反传递
+      formData.append(perm.key, String(!perm.value))
     }
 
     const baseUrl = window.location.origin
@@ -364,9 +354,9 @@ onUnmounted(() => {
             @click="togglePermission(perm.key)"
             class="flex items-center gap-2 py-1 px-2 rounded transition-colors"
             :class="permissionsEditable
-              ? (perm.value ? 'cursor-pointer hover:bg-green-50/30' : 'cursor-pointer hover:bg-red-50/30')
+              ? (perm.value ? 'cursor-pointer hover:bg-red-50/30' : 'cursor-pointer hover:bg-green-50/30')
               : 'cursor-not-allowed'"
-            :style="{ opacity: permissionsEditable ? (perm.value && enabledCount === 1 ? 0.6 : 1) : 0.5 }"
+            :style="{ opacity: permissionsEditable ? 1 : 0.5 }"
           >
             <!-- 开关 -->
             <div
@@ -379,15 +369,8 @@ onUnmounted(() => {
               <div class="w-3 h-3 rounded-full bg-white shadow-sm"></div>
             </div>
             <span class="text-xs" style="color: var(--text-primary)">{{ perm.label }}</span>
-            <span v-if="permissionsEditable && perm.value && enabledCount === 1" class="text-[10px] ml-auto" style="color: var(--text-muted)">
-              （至少保留一项）
-            </span>
           </div>
         </div>
-
-        <p v-if="permissionsEditable && allPermissionsOpen" class="text-[10px] mt-2" style="color: #ef4444">
-          ⚠ 至少需要关闭一项权限
-        </p>
       </div>
       </div>
     </div>

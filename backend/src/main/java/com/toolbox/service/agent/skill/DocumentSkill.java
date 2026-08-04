@@ -38,15 +38,16 @@ public class DocumentSkill implements AgentSkill {
     public String name() { return "document"; }
 
     @Override
-    public String description() { return "文档转换（Word转PDF/Markdown转DOCX）"; }
+    public String description() { return "文档转换（Word/WPS/PPT转PDF/Markdown转DOCX）"; }
 
     @Override
     public List<String> keywords() {
-        return List.of("转PDF", "转成PDF", "文档转换", "Word转", "WPS转", "转DOCX", "转Word", "Markdown转");
+        return List.of("转PDF", "转成PDF", "文档转换", "Word转", "WPS转", "PPT转", "幻灯片转",
+                "转DOCX", "转Word", "Markdown转");
     }
 
     @Override
-    public List<String> fileExtensions() { return List.of(".doc", ".docx", ".wps", ".md"); }
+    public List<String> fileExtensions() { return List.of(".doc", ".docx", ".wps", ".ppt", ".pptx", ".md"); }
 
     @Override
     public List<Object> toolInstances() { return List.of(this); }
@@ -56,7 +57,7 @@ public class DocumentSkill implements AgentSkill {
 
     // ===== @Tool 方法 =====
 
-    @Tool(name = "docToPdf", description = "将 Word(.doc/.docx)或 WPS(.wps)文档转换为 PDF")
+    @Tool(name = "docToPdf", description = "将 Word(.doc/.docx)、WPS(.wps)或 PPT(.ppt/.pptx)文档转换为 PDF")
     public String docToPdf(
             @ToolParam(name = "fileId", required = true, description = "上传的文档文件 ID")
             String fileId) {
@@ -80,8 +81,8 @@ public class DocumentSkill implements AgentSkill {
         } catch (Exception e) {
             log.error("[DocumentSkill#docToPdf] conversion failed", e);
             return "文档转 PDF 失败: LibreOffice 无法转换此文件。"
-                    + "请确认文件是有效的 .doc/.docx/.wps 格式，且没有损坏。"
-                    + "也可以尝试用 Word 另存为后再上传。";
+                    + "请确认文件是有效的 .doc/.docx/.wps/.ppt/.pptx 格式，且没有损坏。"
+                    + "也可以尝试用 Word/WPS/PowerPoint 另存为后再上传。";
         }
     }
 

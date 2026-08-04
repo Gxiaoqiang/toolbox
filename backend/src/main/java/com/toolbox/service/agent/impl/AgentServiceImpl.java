@@ -91,6 +91,7 @@ public class AgentServiceImpl implements AgentService {
             return conversationId;
         }
 
+        try {
         // 3. 文件处理: 存储用户上传的文件
         List<String> fileIds = new ArrayList<>();
         List<String> fileExtensions = new ArrayList<>();
@@ -186,6 +187,13 @@ public class AgentServiceImpl implements AgentService {
         } finally {
             // 确保清理工具产物，防止异常/超时/取消场景下的内存泄漏
             toolkitContext.clearResult(finalConvId);
+        }
+
+        } catch (Exception e) {
+            // 文件处理/路由/历史/输入构建等任何环节异常 →
+            // 依据真实异常给用户反馈，避免用户一直等待
+            log.error("[AgentServiceImpl#handle] processing failed, convId={}", conversationId, e);
+            eventConsumer.accept(ChatEvent.error(errorClassifier.classify(e)));
         }
 
         log.info("[AgentServiceImpl#handle] sending done event");

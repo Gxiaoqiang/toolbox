@@ -36,7 +36,6 @@ public class PdfEncryptServiceImpl implements PdfEncryptService {
                           boolean canAnnotate, boolean canAssemble) {
         // 1. 参数校验
         validatePasswords(userPassword, ownerPassword);
-        validatePermissions(ownerPassword, canPrint, canCopy, canModify, canAnnotate, canAssemble);
 
         LOGGER.info("[PdfEncryptServiceImpl#encrypt] start: userPwd={}, ownerPwd={}, print={}, copy={}, modify={}, annotate={}, assemble={}",
                 mask(userPassword), mask(ownerPassword), canPrint, canCopy, canModify, canAnnotate, canAssemble);
@@ -111,19 +110,6 @@ public class PdfEncryptServiceImpl implements PdfEncryptService {
         }
         if (!ownerEmpty && !PASSWORD_PATTERN.matcher(ownerPassword).matches()) {
             throw new BusinessException(ErrorCodeEnum.PDF_ENCRYPT_PASSWORD_WEAK);
-        }
-    }
-
-    /**
-     * 校验权限：所有者密码存在时至少关闭一个权限
-     */
-    private void validatePermissions(String ownerPassword,
-                                     boolean canPrint, boolean canCopy, boolean canModify,
-                                     boolean canAnnotate, boolean canAssemble) {
-        if (!isBlank(ownerPassword)) {
-            if (canPrint && canCopy && canModify && canAnnotate && canAssemble) {
-                throw new BusinessException(ErrorCodeEnum.PDF_ENCRYPT_PERMISSION_ALL_OPEN);
-            }
         }
     }
 

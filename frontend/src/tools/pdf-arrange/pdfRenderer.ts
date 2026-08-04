@@ -1,5 +1,29 @@
 import * as pdfjsLib from 'pdfjs-dist'
 
+// ===== pdfjs v6 兼容补丁（旧版 Chrome <130 缺失 ES2025 内置方法）=====
+const p = Uint8Array.prototype as any
+if (!p.toHex) {
+  p.toHex = function (this: Uint8Array): string {
+    return Array.from(this).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+}
+const mp = Map.prototype as any
+if (!mp.getOrInsertComputed) {
+  mp.getOrInsertComputed = function (k: unknown, cb: (k: unknown, m: Map<unknown, unknown>) => unknown) {
+    if (this.has(k)) return this.get(k)
+    const v = cb(k, this)
+    this.set(k, v)
+    return v
+  }
+}
+if (!mp.getOrInsert) {
+  mp.getOrInsert = function (k: unknown, v: unknown) {
+    if (this.has(k)) return this.get(k)
+    this.set(k, v)
+    return v
+  }
+}
+
 // Vite 原生支持的静态资源 URL 解析——避免 CDN 跨域问题和离线不可用
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',

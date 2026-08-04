@@ -115,7 +115,8 @@ public class PdfRedactController {
      * @param dpi      渲染 DPI，默认 150
      */
     @PostMapping("/render-page")
-    @RateLimit(permitsPerSecond = 3.0, burst = 8, tier = ResourceTier.MEDIUM)
+    // 提高限流：前端对 pdf.js 渲染空白的页面批量回退调用该接口（每空白页一次），3/s 会触发大量 429 导致预览空白
+    @RateLimit(permitsPerSecond = 12, burst = 30, tier = ResourceTier.MEDIUM)
     public ResponseEntity<?> renderPage(
             @RequestParam("file") MultipartFile file,
             @RequestParam("pageIndex") int pageIndex,

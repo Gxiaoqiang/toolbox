@@ -121,13 +121,12 @@ class PdfEncryptServiceTest {
     class PermissionValidation {
 
         @Test
-        @DisplayName("所有者密码存在 + 权限全开 → 抛 PERMISSION_ALL_OPEN")
-        void ownerPasswordWithAllPermissionsOpen_throwsPermissionAllOpen() throws Exception {
+        @DisplayName("所有者密码存在 + 权限全开 → 允许加密（无需关闭任何权限）")
+        void ownerPasswordWithAllPermissionsOpen_succeeds() throws Exception {
             byte[] pdf = createTestPdf();
-            assertThatThrownBy(() -> service.encrypt(pdf, "", "owner123", true, true, true, true, true))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getCode())
-                    .isEqualTo(ErrorCodeEnum.PDF_ENCRYPT_PERMISSION_ALL_OPEN.getCode());
+            byte[] result = service.encrypt(pdf, "", "owner123", true, true, true, true, true);
+            assertThat(result).isNotNull();
+            assertThat(result.length).isGreaterThan(0);
         }
 
         @Test

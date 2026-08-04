@@ -40,6 +40,12 @@ docs/
 *.tmp
 *.tar.gz
 
+# 内网文件交换编码产物（base64 分片，仅本地/内网传输用，不上传）
+upload/
+
+# 独立落地页（营销用，非 toolbox 应用一部分）
+landing/
+
 # Claude 中间产物
 HANDOFF.md
 test-iframe.html

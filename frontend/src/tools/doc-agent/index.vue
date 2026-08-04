@@ -188,7 +188,7 @@ function formatSize(bytes: number): string {
           <span class="upload-icon">📎</span>
           <input type="file" multiple hidden
             @change="handleFileSelect"
-            accept=".pdf,.doc,.docx,.wps,.md,.jpg,.jpeg,.png,.webp,.gif" />
+            accept=".pdf,.doc,.docx,.wps,.md,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.gif" />
         </label>
         <textarea ref="textareaRef" v-model="inputText"
           @keydown="handleKeydown"
@@ -205,7 +205,7 @@ function formatSize(bytes: number): string {
           <span class="send-icon">↑</span>
         </button>
       </div>
-      <p class="input-hint">Enter 发送，Shift+Enter 换行 · 支持 PDF / DOCX / WPS / MD / 图片文件</p>
+      <p class="input-hint">Enter 发送，Shift+Enter 换行 · 支持 PDF / Word / WPS / PPT / MD / 图片文件</p>
     </div>
   </div>
 </template>
