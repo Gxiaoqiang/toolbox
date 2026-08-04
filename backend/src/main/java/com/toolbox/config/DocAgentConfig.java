@@ -39,6 +39,7 @@ import java.util.concurrent.ScheduledExecutorService;
  * @since 2026-07-15
  */
 @Configuration
+@ConditionalOnProperty(name = "toolbox.agent.enabled", havingValue = "true", matchIfMissing = true)
 public class DocAgentConfig {
 
     private static final Logger log = LoggerFactory.getLogger(DocAgentConfig.class);

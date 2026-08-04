@@ -65,6 +65,8 @@ toolbox:
   # Agent — 文档处理 AI Agent 配置
   # ============================================
   agent:
+    # 是否启用文档助手：false 时不加载 LLM 模型、不创建 Agent 相关 Bean、前端不展示该工具
+    enabled: ${TOOLBOX_AGENT_ENABLED:true}
     # LLM 提供商: dashscope / openai / deepseek
     llm-provider: ${LLM-PROVIDER:deepseek}
     llm-model: ${LLM_MODEL:deepseek-v4-pro}

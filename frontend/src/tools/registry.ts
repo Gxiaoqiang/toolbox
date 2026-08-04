@@ -12,6 +12,25 @@ const toolModules = import.meta.glob<{ default: any; meta?: ToolMeta }>('./*/ind
 /** 已注册的工具列表（懒加载） */
 let toolsCache: ToolDefinition[] | null = null
 
+/** 后端功能开关缓存（如 docAgent 是否启用） */
+let featuresCache: Record<string, boolean> | null = null
+
+/**
+ * 读取后端功能开关，决定哪些工具需要隐藏
+ * 请求失败时默认全部启用，避免后端异常导致工具不可见
+ */
+async function loadFeatures(): Promise<Record<string, boolean>> {
+  if (featuresCache !== null) return featuresCache
+  try {
+    const resp = await fetch(`${window.location.origin}/api/config/features`)
+    const json = await resp.json()
+    featuresCache = (json && json.data) || {}
+  } catch {
+    featuresCache = {}
+  }
+  return featuresCache ?? {}
+}
+
 /** 加载并解析所有工具 */
 export async function loadTools(): Promise<ToolDefinition[]> {
   if (toolsCache !== null) {
@@ -47,8 +66,19 @@ export async function loadTools(): Promise<ToolDefinition[]> {
     })
   }
 
-  toolsCache = tools
-  return tools
+  // 按后端功能开关过滤：如 docAgent=false 时隐藏"文档助手"
+  const features = await loadFeatures()
+  const filtered = tools.filter((t) => {
+    // 有对应功能开关且为 false 时隐藏；无开关或未知则保留
+    const flag = features[t.meta.id]
+    return flag === undefined || flag === true
+  })
+  if (filtered.length !== tools.length) {
+    console.info(`[registry] 按功能开关隐藏工具: ${tools.filter(t => !filtered.includes(t)).map(t => t.meta.id).join(', ')}`)
+  }
+
+  toolsCache = filtered
+  return filtered
 }
 
 /** 获取工具列表（同步，需先调用 loadTools） */

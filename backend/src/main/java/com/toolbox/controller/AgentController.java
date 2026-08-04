@@ -25,6 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Agent 对话接口 — SSE 流式返回，支持文件上传
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
  */
 @RestController
 @RequestMapping("/api/agent")
+@ConditionalOnProperty(name = "toolbox.agent.enabled", havingValue = "true", matchIfMissing = true)
 public class AgentController {
 
     private static final Logger log = LoggerFactory.getLogger(AgentController.class);
