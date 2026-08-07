@@ -192,11 +192,13 @@ public class WatermarkRenderer {
             default -> x = (pageWidth - contentWidth) / 2f + offsetX;
         }
 
+        // Y 偏移取反：前端 canvas 坐标 y 向下（offsetY 正=向下），PDF 用户空间 y 向上。
+        // 取反后 offsetY 正=视觉向下，与前端预览一致。
         float y;
         switch (alignY) {
-            case "top" -> y = pageHeight - contentHeight + offsetY;
-            case "bottom" -> y = offsetY;
-            default -> y = (pageHeight - contentHeight) / 2f + offsetY;
+            case "top" -> y = pageHeight - contentHeight - offsetY;
+            case "bottom" -> y = -offsetY;
+            default -> y = (pageHeight - contentHeight) / 2f - offsetY;
         }
         return new float[]{x, y};
     }

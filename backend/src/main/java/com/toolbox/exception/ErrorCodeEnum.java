@@ -32,6 +32,10 @@ public enum ErrorCodeEnum {
     PDF_EVERY_N_INVALID(400, "每页拆分数量必须为正整数"),
     /** PDF 处理异常 */
     PDF_PROCESS_ERROR(500, "PDF 处理失败，请稍后重试"),
+    /** PDF 转 PPT 处理失败 */
+    PDF_TO_PPT_PROCESS_ERROR(500, "PDF 转 PPT 失败，请稍后重试"),
+    /** AI 引擎未配置大模型 */
+    PDF_TO_PPT_AI_UNAVAILABLE(400, "AI 转换需先配置大模型"),
     /** 文档格式不支持 */
     DOC_FORMAT_INVALID(400, "仅支持 .doc / .docx / .wps 格式"),
     /** 文档文件为空 */
@@ -92,6 +96,10 @@ public enum ErrorCodeEnum {
     PPT_PREVIEW_ERROR(500, "PPT 预览生成失败，请稍后重试"),
     /** PPT 页面选择为空 */
     PPT_PAGE_SELECTION_EMPTY(400, "请至少选择一页"),
+    /** PPT 批量文件超过数量限制 */
+    PPT_TOO_MANY_FILES(400, "单次最多上传 10 个文件"),
+    /** PPT 批量转 PDF 失败 */
+    PPT_BATCH_ERROR(500, "批量转换失败，请稍后重试"),
 
     // ===== PDF 添加水印 =====
     /** 水印来源无效 */
@@ -104,6 +112,22 @@ public enum ErrorCodeEnum {
     PDF_WATERMARK_CONFIG_INVALID(400, "水印参数无效"),
     /** PDF 添加水印处理失败 */
     PDF_WATERMARK_PROCESS_ERROR(500, "PDF 添加水印失败，请稍后重试"),
+
+    // ===== PDF OCR 识别 =====
+    /** OCR 文件为空 */
+    PDF_OCR_FILE_EMPTY(400, "请选择有效的 PDF 文件"),
+    /** OCR 文件超过大小限制 */
+    PDF_OCR_FILE_TOO_LARGE(400, "文件不能超过 50MB"),
+    /** OCR 文件格式不支持 */
+    PDF_OCR_FORMAT_INVALID(400, "请上传 PDF 格式的文件"),
+    /** OCR 输出格式无效 */
+    PDF_OCR_OUTPUT_FORMAT_INVALID(400, "输出格式无效，仅支持 searchable_pdf / text / md / xlsx"),
+    /** OCR 引擎不可用 */
+    PDF_OCR_ENGINE_NOT_AVAILABLE(500, "OCR 引擎不可用，请联系管理员"),
+    /** OCR 识别语言无效 */
+    PDF_OCR_LANGUAGE_INVALID(400, "识别语言无效，仅支持 chi_sim / eng / chi_sim+eng"),
+    /** OCR 识别处理失败 */
+    PDF_OCR_PROCESS_ERROR(500, "OCR 识别失败，请稍后重试"),
 
     // ===== 图片转 PDF =====
     /** 图片文件数量无效 */

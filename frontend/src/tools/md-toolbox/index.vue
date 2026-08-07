@@ -19,7 +19,8 @@
       </div>
 
       <textarea v-model="input" class="flex-1 p-4 border rounded-lg resize-none font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400 md-editor-textarea" style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary)"
-        placeholder="# 在这里输入 Markdown..." @input="renderHtml"></textarea>
+        placeholder="# 在这里输入 Markdown... 支持粘贴/拖拽图片" @input="renderHtml"
+        @paste="onPaste" @drop.prevent="onDrop"></textarea>
 
       <!-- 语法参考面板 -->
       <div class="mt-2 flex-shrink-0 border rounded-lg overflow-hidden transition-colors duration-300" style="border-color: var(--border-color)">
@@ -76,8 +77,47 @@
         </button>
       </div>
 
-      <!-- HTML 预览区 -->
-      <div v-if="activeTab === 'html'" class="flex-1 p-4 border rounded-lg overflow-auto markdown-body" style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary)" v-html="htmlOutput"></div>
+      <!-- HTML 预览区：大纲栏 + 内容 -->
+      <div v-if="activeTab === 'html'" class="flex-1 flex gap-3 min-h-0">
+        <!-- 大纲栏（可展开/收起） -->
+        <div v-if="headings.length" class="flex-shrink-0 border rounded-lg p-2 transition-all duration-200"
+          :class="outlineOpen ? 'w-44' : 'w-9'"
+          style="background: var(--bg-card); border-color: var(--border-color)">
+          <!-- 展开态 -->
+          <template v-if="outlineOpen">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-medium" style="color: var(--text-muted)">大纲</span>
+              <button @click="outlineOpen = false" title="收起大纲"
+                class="w-5 h-5 flex items-center justify-center rounded hover:bg-black/5 transition-colors text-xs"
+                style="color: var(--text-secondary)">⟨</button>
+            </div>
+            <div class="overflow-auto" style="max-height: calc(100% - 24px)">
+              <div
+                v-for="h in headings"
+                :key="h.id"
+                @click="jumpTo(h.id)"
+                class="text-xs py-1 pr-1 rounded cursor-pointer leading-snug transition-colors"
+                :style="{
+                  paddingLeft: (h.level - 1) * 10 + 4 + 'px',
+                  color: activeHeading === h.id ? 'var(--accent-color)' : 'var(--text-secondary)',
+                  fontWeight: activeHeading === h.id ? 600 : 400,
+                }"
+              >{{ h.text }}</div>
+            </div>
+          </template>
+          <!-- 收起态：窄条按钮 -->
+          <button v-else @click="outlineOpen = true" title="展开大纲"
+            class="w-full h-full flex flex-col items-center justify-center gap-1">
+            <span class="text-base leading-none">📑</span>
+            <span class="text-[10px] [writing-mode:vertical-rl]" style="color: var(--text-muted)">大纲</span>
+          </button>
+        </div>
+
+        <!-- 内容 -->
+        <div ref="contentRef" class="flex-1 p-4 border rounded-lg overflow-auto markdown-body"
+          style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary)"
+          v-html="htmlOutput"></div>
+      </div>
 
       <!-- DOCX 下载区 -->
       <div v-else class="flex-1 p-6 border rounded-lg overflow-auto flex flex-col items-center justify-center gap-4" style="background: var(--bg-card); border-color: var(--border-color)">
@@ -110,6 +150,77 @@ defineOptions({ inheritAttrs: false })
 defineExpose({ meta })
 
 marked.setOptions({ gfm: true, breaks: false })
+
+// ======== 大纲：marked renderer 生成标题锚点 id 并收集标题 ========
+
+interface OutlineItem {
+  id: string
+  level: number
+  text: string
+}
+
+const headings = ref<OutlineItem[]>([])
+const activeHeading = ref('')
+const outlineOpen = ref(true) // 大纲栏默认展开
+const contentRef = ref<HTMLElement>()
+
+function slugify(text: string): string {
+  const s = text.trim().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w一-龥-]/g, '')
+  return s || 'heading'
+}
+
+// 收集标题时维护已用 id 集合，避免重复锚点
+const usedIds = new Set<string>()
+function uniqueId(text: string): string {
+  let id = slugify(text)
+  let base = id
+  let i = 2
+  while (usedIds.has(id)) { id = base + '-' + i++ }
+  usedIds.add(id)
+  return id
+}
+
+marked.use({
+  renderer: {
+    heading({ tokens, depth }) {
+      const text = this.parser.parseInline(tokens)
+      const id = uniqueId(text)
+      headings.value.push({ id, level: depth, text })
+      return `<h${depth} id="${id}">${text}</h${depth}>`
+    },
+  },
+})
+
+// ======== 滚动联动：IntersectionObserver 跟踪当前标题 ========
+
+let observer: IntersectionObserver | null = null
+
+function setupOutlineObserver() {
+  observer?.disconnect()
+  const container = contentRef.value
+  if (!container) return
+  const els = container.querySelectorAll('h1, h2, h3, h4, h5, h6')
+  if (els.length === 0) return
+  observer = new IntersectionObserver((entries) => {
+    // 取进入视口（顶部区域）的标题为当前
+    for (const e of entries) {
+      if (e.isIntersecting && (e.target as HTMLElement).id) {
+        activeHeading.value = (e.target as HTMLElement).id
+      }
+    }
+  }, { root: container, rootMargin: '-10% 0px -75% 0px', threshold: 0 })
+  els.forEach((el) => observer!.observe(el))
+}
+
+function jumpTo(id: string) {
+  const el = document.getElementById(id)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    activeHeading.value = id
+  }
+}
 
 const input = ref(`# 欢迎使用 Markdown 工具箱
 
@@ -144,7 +255,112 @@ const tabs = [{ key: 'html' as const, label: 'HTML 预览' }, { key: 'docx' as c
 const { copied, copy } = useClipboard()
 const { success, error: toastError } = useToast()
 
-function renderHtml() { try { htmlOutput.value = marked.parse(input.value) as string } catch { htmlOutput.value = '<p style="color:red">解析错误</p>' } }
+function renderHtml() {
+  headings.value = []
+  usedIds.clear()
+  try {
+    htmlOutput.value = expandImgRefs(marked.parse(input.value) as string)
+  } catch {
+    htmlOutput.value = '<p style="color:red">解析错误</p>'
+  }
+  // 渲染后挂载滚动联动
+  requestAnimationFrame(setupOutlineObserver)
+}
+
+// ======== 本地图片：粘贴 / 拖拽 → base64 内嵌 ========
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const it of items) {
+    if (it.kind === 'file' && it.type.startsWith('image/')) {
+      const file = it.getAsFile()
+      if (file) { e.preventDefault(); insertLocalImage(file); break }
+    }
+  }
+}
+
+function onDrop(e: DragEvent) {
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+  let handled = false
+  for (const f of Array.from(files)) {
+    if (f.type.startsWith('image/')) { insertLocalImage(f); handled = true }
+  }
+  if (handled) e.preventDefault()
+}
+
+// 图片资源：id → base64 dataUrl（编辑器只显示短占位符，base64 存内存，避免超长串）
+const assets = new Map<number, string>()
+let assetSeq = 0
+
+/** 展开图片引用：把 @img:{id} 替换为真实 base64 dataUrl */
+function expandImgRefs(src: string): string {
+  return src.replace(/@img:(\d+)/g, (m, id) => assets.get(Number(id)) ?? m)
+}
+
+/** 图片最大宽度（px）：保证导出 HTML/DOCX 图片不超页、所见即所得 */
+const MAX_IMAGE_WIDTH = 800
+
+/** 用 canvas 缩放图片到最大宽度，输出 JPEG(0.9)/PNG(保透明)，返回 dataUrl */
+function resizeImage(dataUrl: string, mimeType: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      let w = img.width
+      let h = img.height
+      if (w <= MAX_IMAGE_WIDTH) { resolve(dataUrl); return } // 无需缩放
+      h = Math.round((h * MAX_IMAGE_WIDTH) / w)
+      w = MAX_IMAGE_WIDTH
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      ctx!.drawImage(img, 0, 0, w, h)
+      // PNG 保透明，其余转 JPEG 压缩
+      const out = mimeType === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9)
+      resolve(out)
+    }
+    img.onerror = reject
+    img.src = dataUrl
+  })
+}
+
+function insertLocalImage(file: File) {
+  if (!file.type.startsWith('image/')) return
+  if (file.size > MAX_IMAGE_SIZE) {
+    toastError('图片过大（≤5MB），请压缩后重试')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    resizeImage(reader.result as string, file.type).then((dataUrl) => {
+      const id = ++assetSeq
+      assets.set(id, dataUrl)
+      const textarea = document.querySelector('.md-editor-textarea') as HTMLTextAreaElement | null
+      const start = textarea ? textarea.selectionStart : input.value.length
+      const alt = (file.name.replace(/\.[^.]+$/, '') || '图片').slice(0, 30)
+      // 编辑器只放短占位符，base64 存内存
+      const md = `![${alt}](@img:${id})`
+      input.value = input.value.slice(0, start) + md + input.value.slice(start)
+      requestAnimationFrame(() => {
+        const ta = document.querySelector('.md-editor-textarea') as HTMLTextAreaElement | null
+        if (ta) {
+          const pos = start + md.length
+          ta.selectionStart = pos
+          ta.selectionEnd = pos
+          ta.focus()
+        }
+      })
+      renderHtml()
+      success('图片已插入')
+    }).catch(() => toastError('图片处理失败'))
+  }
+  reader.onerror = () => toastError('图片读取失败')
+  reader.readAsDataURL(file)
+}
 
 // ======== 光标插入工具 ========
 
@@ -276,7 +492,7 @@ function toggleSyntaxRef() {
 
 function copyHtml() { copy(htmlOutput.value); success('HTML 已复制') }
 function downloadHtml() {
-  const h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>Output</title><style>body{max-width:900px;margin:0 auto;padding:2rem;font-family:-apple-system,sans-serif;line-height:1.6;color:#1a1a2e}h1{border-bottom:2px solid #eee;padding-bottom:.3em}h2{border-bottom:1px solid #eee;padding-bottom:.3em}pre{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto}code{background:#f0f0f0;padding:.2em .4em;border-radius:4px}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f5}blockquote{border-left:4px solid #0366d6;padding-left:1rem;color:#555}</style></head><body>' + htmlOutput.value + '</body></html>'
+  const h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>Output</title><style>body{max-width:900px;margin:0 auto;padding:2rem;font-family:-apple-system,sans-serif;line-height:1.6;color:#1a1a2e}img{max-width:100%;height:auto}h1{border-bottom:2px solid #eee;padding-bottom:.3em}h2{border-bottom:1px solid #eee;padding-bottom:.3em}pre{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto}code{background:#f0f0f0;padding:.2em .4em;border-radius:4px}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f5}blockquote{border-left:4px solid #0366d6;padding-left:1rem;color:#555}</style></head><body>' + htmlOutput.value + '</body></html>'
   const blob = new Blob([h], { type: 'text/html;charset=utf-8' }); const url = URL.createObjectURL(blob)
   const a = document.createElement('a'); a.href = url; a.download = 'output.html'; a.click(); URL.revokeObjectURL(url)
   success('HTML 文件已下载')
@@ -286,9 +502,14 @@ async function convertToDocx() {
   if (!input.value.trim()) { toastError('请先输入 Markdown 内容'); return }
   converting.value = true
   try {
-    const fd = new FormData(); fd.append('content', input.value); fd.append('filename', 'converted')
+    const fd = new FormData(); fd.append('content', expandImgRefs(input.value)); fd.append('filename', 'converted')
     const resp = await fetch('/api/markdown/md-to-docx', { method: 'POST', body: fd })
-    if (!resp.ok) throw new Error('HTTP ' + resp.status)
+    // 后端错误以 HTTP 200 + JSON 返回，需先检查 content-type，避免错误体被当 docx 下载
+    const ct = resp.headers.get('content-type') || ''
+    if (!resp.ok || ct.includes('application/json')) {
+      const err = await resp.json().catch(() => ({ message: '转换失败' }))
+      throw new Error(err.message || `HTTP ${resp.status}`)
+    }
     const blob = await resp.blob(); const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url; a.download = 'output.docx'
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)

@@ -130,6 +130,8 @@ GlobalExceptionHandler (@RestControllerAdvice)
 | `flexmark-all` | Markdown → HTML（服务端） |
 | `docx4j-JAXB-ReferenceImpl` | AltChunk 方式嵌入 HTML 生成 DOCX |
 | `pdfbox` 3.0.3 | PDF 切分、合并、元数据处理 |
+| `tess4j` 5.13.0 | OCR 识别（JNA 调用系统 libtesseract） |
+| `easyexcel` 4.0.3 | OCR 表格结果导出 .xlsx |
 
 ### LibreOffice 配置
 
@@ -143,6 +145,32 @@ GlobalExceptionHandler (@RestControllerAdvice)
 | POST | `/api/pdf/split` | PDF 切分（1 个文件，≤50MB） |
 | POST | `/api/pdf/merge` | PDF 合并（2-10 个文件，≤5MB/个） |
 | POST | `/api/document/convert-to-pdf` | 文档转 PDF（≤5 个文件，≤50MB/个，.doc/.docx/.wps） |
+| POST | `/api/pdf/ocr` | PDF OCR 识别（1 个文件，≤50MB，format: searchable_pdf/text/md/xlsx） |
+
+---
+
+### PDF OCR 识别
+
+`service/ocr/` 下分层实现，核心类：
+
+| 类 | 职责 |
+|----|------|
+| `OcrEngine` 接口 | OCR 引擎抽象，预留 PaddleOCR / 云 API 扩展 |
+| `TesseractOcrEngine` | Tesseract 实现（Tess4J），跨平台探测 libtesseract 库与 tessdata 路径 |
+| `PdfAnalyzer` | 逐页检测扫描件/原生文字，只对扫描页执行 OCR |
+| `SearchablePdfWriter` | 可搜索 PDF：需嵌入 CJK 字体（Helvetica 等标准字体不支持中文） |
+| `MarkdownBuilder` | 文本 → Markdown 结构化 |
+| `TableExtractor` | 文本 → Excel（EasyExcel） |
+
+配置项（`application.yml`）：
+```yaml
+toolbox:
+  ocr:
+    tessdata-path: ""   # tesseract tessdata 目录，空则自动探测系统路径
+    font-path: ""       # 可搜索 PDF 中文字体，空则自动探测系统字体
+```
+
+本地开发需安装 tesseract + 中文语言包（`brew install tesseract tesseract-lang`）；Docker 镜像已内置。
 
 ---
 
@@ -256,26 +284,6 @@ public void saveSupportLabor(String processInstanceId, List<SupportLaborModel> c
 #### 2.4.3 代码划分
         不同的功能按照领域进行划分，可以先试用package的方式，如果后面功能比较多可以采用子module的方式。
         
-### 2.5 日志打印
-    志打印要把基础的类方法等信息打印出来,使用slf4j方式。，不要使用中文描述，要使用英文描述。
- ```
- log.info("[className#methodName]  xxxxxx {}",xxxx);
- log.error("[className#methodName]  xxxxxx process exception  {},params={}",ex,ex.getMessage,xxxx);
- 
-```
 
-### 2.6 代码通用要求
-    1.禁止代码中使用魔法值。
-    2.每个方法上都要添加注释，做好具体作用的说明。参考 2.3 方法注释、
-    3.每个类上也要做好注释。参考2.1 类注释、2.2 接口注释
-    4.写代码或者方案的时候，需要考虑是否存在内存OOM或者泄漏的风险，比如：ThreadLocal必须在finally中删除；锁必须释放；不能一直向list或者其他存储中存放数据等等；
-    5.方法最好能做到复用，而不是什么都写一个新的，这个需要你对整个项目都要做一定的了解和分析
-    
-### 2.7 事务使用
-    事务只能使用编程式，不能使用声明式事务。
-    mq发送消息不能放到事务中。
 
-### 2.8 方法定义
-    1.每个方法不要超过80行；
-    2.每个方法上都要添加注释，做好具体作用的说明。参考 2.3 方法注释、
     3.

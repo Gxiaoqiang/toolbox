@@ -1,5 +1,9 @@
 server:
   port: ${SERVER_PORT:8899}
+  tomcat:
+    # 提高 Tomcat connector 的 POST 表单/参数大小上限（默认 2MB）。
+    # 否则 md-toolbox 导出 DOCX 时大图 base64 作为文本字段会超限报 500。
+    max-http-form-post-size: 50MB
 
 spring:
   application:

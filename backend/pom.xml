@@ -77,12 +77,41 @@
             <version>2.0.0</version>
             <scope>compile</scope>
         </dependency>
+        <!-- Tess4J: Tesseract OCR Java 绑定 (JNA → libtesseract) -->
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.13.0</version>
+        </dependency>
+        <!-- EasyExcel: 表格识别结果导出 .xlsx（省内存、API 简洁） -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>4.0.3</version>
+        </dependency>
+        <!-- Apache POI: PDF 转可编辑 PPTX 生成（XSLF） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- jai-imageio 含 ImageIO SPI（TIFF 解码扫描件图片），
+                         fat jar 里 ServiceLoader 无法扫描嵌套 jar 的 META-INF/services，
+                         必须解包运行，否则 ImageIO 初始化失败导致扫描 PDF 渲染报错。 -->
+                    <requiresUnpack>
+                        <dependency>
+                            <groupId>com.github.jai-imageio</groupId>
+                            <artifactId>jai-imageio-core</artifactId>
+                        </dependency>
+                    </requiresUnpack>
+                </configuration>
             </plugin>
             <!-- frontend-maven-plugin: 构建时自动编译前端 (Task 13 集成阶段启用) -->
             <!--

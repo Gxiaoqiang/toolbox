@@ -23,6 +23,13 @@ FROM toolbox-runtime:1.1
 WORKDIR /app
 COPY backend/target/toolbox-1.0.0.jar app.jar
 
+# Tesseract OCR 引擎（含简体中文 + 繁体中文语言包）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-chi-sim \
+    tesseract-ocr-chi-tra \
+    && rm -rf /var/lib/apt/lists/*
+
 # Playwright driver-bundle
 RUN mkdir -p lib
 COPY backend/target/driver-bundle-1.44.0.jar lib/

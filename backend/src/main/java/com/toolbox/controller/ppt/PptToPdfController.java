@@ -5,6 +5,8 @@ import com.toolbox.exception.ErrorCodeEnum;
 import com.toolbox.model.dto.PptPreviewResponse;
 import com.toolbox.model.common.R;
 import com.toolbox.service.document.DocumentService;
+import com.toolbox.security.annotation.RateLimit;
+import com.toolbox.security.ratelimit.ResourceTier;
 import com.toolbox.service.ppt.PptConvertConstant;
 import com.toolbox.service.ppt.PptPdfCache;
 import com.toolbox.util.FileTypeValidator;
@@ -37,6 +39,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * PPT 转 PDF 控制器
@@ -175,6 +179,166 @@ public class PptToPdfController {
                     filename, e.getMessage(), e);
             throw new BusinessException(ErrorCodeEnum.PPT_CONVERT_ERROR);
         }
+    }
+
+    /**
+     * PPT 批量转 PDF — 一次上传多个 PPT（≤10 个），支持合并或分别打包
+     * <p>
+     * 每个文件独立通过 LibreOffice 转换为 PDF，单个文件失败不影响其余文件。
+     * <ul>
+     *   <li>{@code mode=merge}：全部成功的 PDF 按上传顺序合并为一个 PDF 返回</li>
+     *   <li>{@code mode=separate}（默认）：每个 PDF 单独一个 entry 打包为 ZIP 返回</li>
+     * </ul>
+     *
+     * @param files 多个 PPT 文件（≤10 个，单个 ≤50MB）
+     * @param mode  输出方式：merge 合并为单 PDF；separate 分别转换打包 ZIP
+     * @return 单 PDF（merge）或 ZIP（separate）
+     */
+    @PostMapping("/batch-to-pdf")
+    @RateLimit(permitsPerSecond = 1.0, burst = 3, tier = ResourceTier.HEAVY)
+    public ResponseEntity<?> batchToPdf(
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "mode", required = false, defaultValue = "separate") String mode) {
+
+        if (files == null || files.isEmpty()) {
+            throw new BusinessException(ErrorCodeEnum.PPT_FILE_EMPTY);
+        }
+        if (files.size() > 10) {
+            throw new BusinessException(ErrorCodeEnum.PPT_TOO_MANY_FILES);
+        }
+
+        LOGGER.info("[PptToPdfController#batchToPdf] start, files={}, mode={}", files.size(), mode);
+
+        try {
+            // 1. 逐文件转换，收集成功 PDF 与失败信息（单文件失败不中断）
+            List<String> successNames = new ArrayList<>();
+            List<byte[]> successPdfs = new ArrayList<>();
+            List<String> errorEntries = new ArrayList<>();
+
+            for (MultipartFile file : files) {
+                String originalFilename = file.getOriginalFilename();
+                validateFile(file);
+
+                try {
+                    byte[] pdfBytes = documentService.convertToPdf(file.getBytes(), originalFilename);
+                    successPdfs.add(pdfBytes);
+                    successNames.add(originalFilename);
+                    LOGGER.info("[PptToPdfController#batchToPdf] convert ok, file={}", originalFilename);
+                } catch (BusinessException e) {
+                    LOGGER.warn("[PptToPdfController#batchToPdf] convert fail, file={}, reason={}",
+                            originalFilename, e.getMessage());
+                    errorEntries.add(jsonError(originalFilename, e.getMessage()));
+                } catch (Exception e) {
+                    LOGGER.error("[PptToPdfController#batchToPdf] convert exception, file={}", originalFilename, e);
+                    errorEntries.add(jsonError(originalFilename, "转换失败"));
+                }
+            }
+
+            if ("merge".equalsIgnoreCase(mode)) {
+                return buildMergeResponse(successPdfs, errorEntries);
+            }
+            return buildSeparateResponse(successPdfs, successNames, errorEntries);
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("[PptToPdfController#batchToPdf] process exception, error={}", e.getMessage(), e);
+            throw new BusinessException(ErrorCodeEnum.PPT_BATCH_ERROR);
+        }
+    }
+
+    /**
+     * 将多个 PDF 合并为一个 PDF 返回
+     */
+    private ResponseEntity<?> buildMergeResponse(List<byte[]> pdfs, List<String> errorEntries) throws IOException {
+        if (pdfs.isEmpty()) {
+            throw new BusinessException(ErrorCodeEnum.PPT_CONVERT_ERROR);
+        }
+
+        byte[] merged = mergePdfs(pdfs);
+        if (!errorEntries.isEmpty()) {
+            LOGGER.warn("[PptToPdfController#buildMergeResponse] merged with {} failed files", errorEntries.size());
+        }
+
+        ByteArrayResource resource = new ByteArrayResource(merged);
+        String encodedFilename = URLEncoder.encode("ppt-merge-result.pdf", StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + encodedFilename)
+                .body(resource);
+    }
+
+    /**
+     * 将多个 PDF 打包为 ZIP 返回，若有失败则附带 _errors.json
+     */
+    private ResponseEntity<?> buildSeparateResponse(List<byte[]> pdfs, List<String> names,
+                                                    List<String> errorEntries) throws IOException {
+        if (pdfs.isEmpty()) {
+            throw new BusinessException(ErrorCodeEnum.PPT_CONVERT_ERROR);
+        }
+
+        ByteArrayOutputStream zipBos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(zipBos)) {
+            for (int i = 0; i < pdfs.size(); i++) {
+                String baseName = stripExtension(names.get(i));
+                String pdfFilename = baseName + "_converted.pdf";
+                ZipEntry entry = new ZipEntry(pdfFilename);
+                zos.putNextEntry(entry);
+                zos.write(pdfs.get(i));
+                zos.closeEntry();
+            }
+
+            if (!errorEntries.isEmpty()) {
+                ZipEntry errEntry = new ZipEntry("_errors.json");
+                zos.putNextEntry(errEntry);
+                String json = "{\"failed\":[" + String.join(",", errorEntries) + "]}";
+                zos.write(json.getBytes(StandardCharsets.UTF_8));
+                zos.closeEntry();
+            }
+        }
+
+        ByteArrayResource resource = new ByteArrayResource(zipBos.toByteArray());
+        String encodedFilename = URLEncoder.encode("ppt-to-pdf-result.zip", StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + encodedFilename)
+                .body(resource);
+    }
+
+    /**
+     * 用 PDFBox 将多个 PDF 按顺序合并为一个
+     */
+    private byte[] mergePdfs(List<byte[]> pdfs) throws IOException {
+        PDDocument outputDoc = new PDDocument();
+        try {
+            for (byte[] pdfBytes : pdfs) {
+                try (PDDocument sourceDoc = Loader.loadPDF(pdfBytes)) {
+                    for (PDPage page : sourceDoc.getPages()) {
+                        outputDoc.importPage(page);
+                    }
+                }
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            outputDoc.save(out);
+            LOGGER.info("[PptToPdfController#mergePdfs] merged {} pdfs, totalPages={}",
+                    pdfs.size(), outputDoc.getNumberOfPages());
+            return out.toByteArray();
+        } finally {
+            outputDoc.close();
+        }
+    }
+
+    /**
+     * 构造单个失败文件的 JSON 片段
+     */
+    private String jsonError(String filename, String reason) {
+        String safeFilename = filename != null ? filename.replace("\"", "\\\"") : "unknown";
+        String safeReason = reason != null ? reason.replace("\"", "\\\"") : "转换失败";
+        return "{\"filename\":\"" + safeFilename + "\",\"reason\":\"" + safeReason + "\"}";
     }
 
     /**

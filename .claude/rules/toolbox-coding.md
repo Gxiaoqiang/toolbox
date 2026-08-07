@@ -44,6 +44,7 @@ export const meta: ToolMeta = {
 | PDF 压缩 | 1 | 50MB | .pdf |
 | PDF 转图片 | 1 | 50MB | .pdf |
 | Markdown 转 DOCX | 1 | 10MB | .md |
+| PDF OCR 识别 | 1 | 50MB | .pdf |
 
 ---
 

@@ -13,7 +13,29 @@ export const meta: ToolMeta = {
 
 <template>
   <div class="flex flex-col h-full">
-    <!-- ===== 顶部：文件上传区 ===== -->
+    <!-- ===== 顶部：模式切换器（单文件 / 批量） ===== -->
+    <div class="flex-shrink-0 pb-3">
+      <div class="flex items-center gap-1 p-1 rounded-lg w-fit" style="background: var(--bg-card-hover)">
+        <button
+          @click="switchMode('single')"
+          class="px-4 py-1.5 text-xs font-medium rounded-md transition-colors"
+          :style="mode === 'single'
+            ? { background: 'var(--accent-color)', color: '#fff' }
+            : { color: 'var(--text-muted)' }"
+        >单文件</button>
+        <button
+          @click="switchMode('batch')"
+          class="px-4 py-1.5 text-xs font-medium rounded-md transition-colors"
+          :style="mode === 'batch'
+            ? { background: 'var(--accent-color)', color: '#fff' }
+            : { color: 'var(--text-muted)' }"
+        >批量转换</button>
+      </div>
+    </div>
+
+    <!-- ===== 单文件模式 ===== -->
+    <template v-if="mode === 'single'">
+    <!-- 顶部：文件上传区 -->
     <div class="flex-shrink-0 pb-3">
       <!-- 上传区 -->
       <div
@@ -274,6 +296,112 @@ export const meta: ToolMeta = {
         >›</button>
       </div>
     </Teleport>
+    </template>
+
+    <!-- ===== 批量模式 ===== -->
+    <template v-else>
+    <!-- 批量上传区 -->
+    <div class="flex-shrink-0 pb-3">
+      <div
+        class="border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-2 transition-colors"
+        :class="[
+          batchStage === 'converting' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30'
+        ]"
+        style="border-color: var(--border-color); background: var(--bg-card)"
+        @click="batchStage !== 'converting' && triggerBatchInput()"
+        @dragover.prevent="batchStage !== 'converting' && (batchDragOver = true)"
+        @dragleave.prevent="batchDragOver = false"
+        @drop.prevent="batchStage !== 'converting' && handleBatchDrop($event)"
+      >
+        <span class="text-3xl">📊</span>
+        <div class="text-center">
+          <p class="text-sm font-medium" style="color: var(--text-primary)">拖拽多个 PPT 到此处</p>
+          <p class="text-xs mt-1" style="color: var(--text-muted)">或点击选择 · 最多 10 个 · 单个 ≤50MB · 支持 .ppt / .pptx</p>
+        </div>
+      </div>
+      <input ref="batchInputRef" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple class="hidden" @change="handleBatchSelect" />
+
+      <!-- 文件列表 -->
+      <div v-if="batchFiles.length > 0" class="mt-2 flex flex-col gap-1.5">
+        <div v-for="(f, i) in batchFiles" :key="f.name + i"
+          class="flex items-center gap-2 px-3 py-2 rounded-md border"
+          style="border-color: var(--border-color); background: var(--bg-card)"
+        >
+          <span class="text-lg">📊</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate" style="color: var(--text-primary)">{{ f.name }}</p>
+            <p class="text-xs" style="color: var(--text-muted)">{{ formatSize(f.size) }}</p>
+          </div>
+          <button
+            v-if="batchStage !== 'converting'"
+            @click.stop="removeBatchFile(i)"
+            class="text-xs underline hover:text-red-500 transition-colors"
+            style="color: var(--text-muted)"
+          >移除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 批量主体：转换方式 + 结果 -->
+    <div class="flex-1 overflow-y-auto min-h-0">
+      <!-- 转换中 -->
+      <div v-if="batchStage === 'converting'" class="flex flex-col items-center justify-center h-full gap-3">
+        <svg class="animate-spin" width="40" height="40" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="var(--accent-color)" stroke-width="2" opacity="0.15"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p class="text-sm" style="color: var(--text-muted)">正在批量转换 {{ batchFiles.length }} 个文件...</p>
+      </div>
+
+      <!-- 错误 -->
+      <div v-else-if="batchStage === 'error'" class="flex flex-col items-center justify-center h-full gap-3">
+        <span class="text-4xl">⚠️</span>
+        <p class="text-sm text-center px-4" style="color: #ef4444">{{ batchErrorMsg }}</p>
+      </div>
+
+      <!-- 转换完成 -->
+      <div v-else-if="batchStage === 'done'" class="flex flex-col items-center justify-center h-full gap-3">
+        <span class="text-4xl">✅</span>
+        <p class="text-sm font-medium" style="color: var(--text-primary)">转换完成</p>
+        <p class="text-xs" style="color: var(--text-muted)">{{ batchResultInfo }}</p>
+        <button @click="downloadBatchResult"
+          class="px-4 py-2 text-sm rounded-lg text-white transition-colors hover:opacity-90"
+          style="background: var(--accent-color)">📥 下载{{ batchMerge ? 'PDF' : 'ZIP' }}</button>
+        <button @click="resetBatch" class="text-xs underline" style="color: var(--text-muted)">返回重新选择</button>
+      </div>
+
+      <!-- 空态 -->
+      <div v-else class="flex flex-col items-center justify-center h-full gap-3">
+        <span class="text-5xl">📊</span>
+        <p class="text-sm" style="color: var(--text-muted)">请先上传 PPT 文件</p>
+      </div>
+    </div>
+
+    <!-- 批量底部：输出方式 + 转换按钮 -->
+    <div v-if="batchStage !== 'converting' && batchFiles.length > 0" class="flex-shrink-0 pt-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--text-primary)">
+          <input type="radio" v-model="batchMerge" :value="true" class="accent-current" />
+          合并为一个 PDF
+        </label>
+        <label class="flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--text-primary)">
+          <input type="radio" v-model="batchMerge" :value="false" class="accent-current" />
+          分别转换（ZIP）
+        </label>
+      </div>
+      <button
+        @click="startBatchConvert"
+        :disabled="batchFiles.length === 0"
+        class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0"
+        :style="batchFiles.length > 0
+          ? { background: 'var(--accent-color)', color: '#fff' }
+          : { background: 'var(--bg-card-hover)', color: 'var(--text-muted)', cursor: 'not-allowed' }"
+      >
+        <span class="text-base leading-none">▶</span>
+        <span>批量转换为 PDF</span>
+      </button>
+    </div>
+    </template>
   </div>
 </template>
 
@@ -315,6 +443,20 @@ interface PageItem {
   height: number
   selected: boolean
 }
+
+/** 当前模式：single 单文件 / batch 批量 */
+const mode = ref<'single' | 'batch'>('single')
+
+// ===== 批量模式状态 =====
+type BatchStage = 'idle' | 'converting' | 'done' | 'error'
+const batchInputRef = ref<HTMLInputElement>()
+const batchFiles = ref<File[]>([])
+const batchDragOver = ref(false)
+const batchStage = ref<BatchStage>('idle')
+const batchMerge = ref(true) // true=合并为一个 PDF；false=分别转换打包 ZIP
+const batchResultBlob = ref<Blob | null>(null)
+const batchResultInfo = ref('')
+const batchErrorMsg = ref('')
 
 const fileInputRef = ref<HTMLInputElement>()
 const uploadedFile = ref<File | null>(null)
@@ -386,6 +528,139 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / 1048576).toFixed(1) + ' MB'
+}
+
+// ======================== 模式切换 ========================
+
+/**
+ * 切换单文件 / 批量模式
+ */
+function switchMode(target: 'single' | 'batch') {
+  if (mode.value === target) return
+  mode.value = target
+  if (target === 'batch') {
+    resetBatch()
+  }
+}
+
+// ======================== 批量模式 ========================
+
+/**
+ * 重置批量状态到初始
+ */
+function resetBatch() {
+  batchFiles.value = []
+  if (batchInputRef.value) batchInputRef.value.value = ''
+  batchStage.value = 'idle'
+  batchResultBlob.value = null
+  batchResultInfo.value = ''
+  batchErrorMsg.value = ''
+}
+
+function triggerBatchInput() {
+  batchInputRef.value?.click()
+}
+
+function isPptFile(name: string): boolean {
+  const ext = name.split('.').pop()?.toLowerCase() || ''
+  return ext === 'ppt' || ext === 'pptx'
+}
+
+function handleBatchSelect(e: Event) {
+  const files = (e.target as HTMLInputElement).files
+  if (files && files.length > 0) addBatchFiles(Array.from(files))
+}
+
+function handleBatchDrop(e: DragEvent) {
+  batchDragOver.value = false
+  const files = e.dataTransfer?.files
+  if (files && files.length > 0) addBatchFiles(Array.from(files))
+}
+
+/**
+ * 新增批量文件，做格式/大小/数量校验
+ */
+function addBatchFiles(newFiles: File[]) {
+  for (const f of newFiles) {
+    if (!isPptFile(f.name)) {
+      toastError(`「${f.name}」格式不支持，仅支持 .ppt / .pptx`)
+      continue
+    }
+    if (f.size > 50 * 1024 * 1024) {
+      toastError(`「${f.name}」超过 50MB`)
+      continue
+    }
+    if (batchFiles.value.some(existing => existing.name === f.name && existing.size === f.size)) {
+      toastError(`「${f.name}」已添加`)
+      continue
+    }
+    if (batchFiles.value.length >= 10) {
+      toastError('单次最多上传 10 个文件')
+      break
+    }
+    batchFiles.value.push(f)
+  }
+  batchStage.value = 'idle'
+  batchResultBlob.value = null
+  batchResultInfo.value = ''
+}
+
+/**
+ * 移除批量文件
+ */
+function removeBatchFile(index: number) {
+  batchFiles.value.splice(index, 1)
+  batchStage.value = 'idle'
+  batchResultBlob.value = null
+  batchResultInfo.value = ''
+}
+
+/**
+ * 开始批量转换
+ */
+async function startBatchConvert() {
+  if (batchFiles.value.length === 0 || batchStage.value === 'converting') return
+
+  batchStage.value = 'converting'
+  batchResultBlob.value = null
+  batchResultInfo.value = ''
+
+  try {
+    const formData = new FormData()
+    batchFiles.value.forEach(f => formData.append('files', f))
+    formData.append('mode', batchMerge.value ? 'merge' : 'separate')
+
+    const resp = await fetch('/api/ppt/batch-to-pdf', { method: 'POST', body: formData })
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ message: '批量转换失败' }))
+      throw new Error(err.message || `HTTP ${resp.status}`)
+    }
+
+    batchResultBlob.value = await resp.blob()
+    batchResultInfo.value = batchMerge.value
+      ? `合并 PDF 文件 (${formatSize(batchResultBlob.value.size)})`
+      : `ZIP 压缩包 (${formatSize(batchResultBlob.value.size)})`
+    batchStage.value = 'done'
+    toastSuccess('批量转换成功')
+  } catch (e: any) {
+    batchErrorMsg.value = e.message || '批量转换失败'
+    batchStage.value = 'error'
+    toastError(e.message || '批量转换失败')
+  }
+}
+
+/**
+ * 下载批量转换结果
+ */
+function downloadBatchResult() {
+  if (!batchResultBlob.value) return
+  const url = URL.createObjectURL(batchResultBlob.value)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = batchMerge.value ? 'ppt-merge-result.pdf' : 'ppt-to-pdf-result.zip'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /**
